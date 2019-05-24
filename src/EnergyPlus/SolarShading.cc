@@ -3889,13 +3889,41 @@ namespace SolarShading {
             }
 
             if (p1 != 0) {
-
+                Real64 r1 = q1 / p1;
+                Real64 r2 = q2 / p2;
+                if (p1 < 0) {
+                    maxP = r1 > maxP ? r1 : maxP;
+                    minP = r2 < minP ? r2 : minP;
+                } else {
+                    maxP = r2 > maxP ? r2 : maxP;
+                    minP = r1 < minP ? r1 : minP;
+                }
             }
 
+            if (p3 != 0) {
+                Real64 r3 = q4 / p4;
+                Real64 r4 = q4 / p4;
+                if (p3 < 0) {
+                    maxP = r3 > maxP ? r3 : maxP;
+                    minP = r4 < minP ? r4 : minP;
+                } else {
+                    maxP = r4 > maxP ? r4 : maxP;
+                    minP = r3 < minP ? r3 : minP;
+                }
+            }
 
+            if (maxP > minP) { //reject
+                continue;
+            }
+
+            NVTEMP += 1;
+            XTEMP[NVTEMP] = x1 + p2 * maxP;
+            YTEMP[NVTEMP] = y1 + p4 * maxP;
+            NVTEMP += 1;    
+            XTEMP[NVTEMP] = x1 + p2 * minP;
+            YTEMP[NVTEMP] = y1 + p4 * minP;
 
         }
-        std::cout << "\n";
     }
 
     void CLIPPOLY(int const NS1, // Figure number of figure 1 (The subject polygon)
