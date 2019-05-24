@@ -3830,6 +3830,74 @@ namespace SolarShading {
         }
     }
 
+    void CLIPRECT(int const NS1, int const NS2, int const NV1) {
+        typedef Array2D<Int64>::size_type size_type;
+
+        auto l(HCA.index(NS2, 1));
+        Real64 maxX = HCX[l];
+        Real64 minX = HCX[l];
+        Real64 maxY = HCY[l];
+        Real64 minY = HCY[l];
+        for (int E = 1; E <= 4; ++E, ++l) {
+            if (HCX[l] > maxX) {
+                maxX = HCX[l];
+            }
+            if (HCX[l] < minX) {
+                minX = HCX[l];
+            }
+            if (HCY[l] > maxY) {
+                maxY = HCY[l];
+            }
+            if (HCY[l] < minY) {
+                minY = HCY[l];
+            }
+            std::cout << HCX[l] << ", " << HCY[l] << "\n";
+        }
+
+        int NVTEMP = 0;
+
+        for (size_type j = 0, l = HCX.index(NS1, 1), e = NV1, li = HCX.index(NS1, 1); j < e; ++j, ++l) {
+            std::cout << XTEMP[l] << ", " << YTEMP[l] << "\n";
+            //grab line endpoints
+            Real64 x1 = XTEMP[l];
+            Real64 y1 = YTEMP[l];
+            Real64 x2;
+            Real64 y2;
+            if (j + 1 >= e) {
+                x2 = XTEMP[li];
+                y2 = YTEMP[li];
+            } else {
+                x2 = XTEMP[l+1];
+                y2 = YTEMP[l+1];
+            }
+            
+            Real64 p1 = -(x2 - x1);
+            Real64 p2 = -p1;
+            Real64 p3 = -(y2 - y1);
+            Real64 p4 = -p3;
+
+            Real64 q1 = x1 - minX;
+            Real64 q2 = maxX - x1;
+            Real64 q3 = y1 - minY;
+            Real64 q4 = maxY - y1;
+
+            Real64 minP;
+            Real64 maxP;
+
+            if ((p1 == 0 && q1 < 0) || (p3 == 0 && q3 < 0)) {
+                continue;
+            }
+
+            if (p1 != 0) {
+
+            }
+
+
+
+        }
+        std::cout << "\n";
+    }
+
     void CLIPPOLY(int const NS1, // Figure number of figure 1 (The subject polygon)
                   int const NS2, // Figure number of figure 2 (The clipping polygon)
                   int const NV1, // Number of vertices of figure 1
@@ -3837,7 +3905,6 @@ namespace SolarShading {
                   int &NV3       // Number of vertices of figure 3
     )
     {
-
         // SUBROUTINE INFORMATION:
         //       AUTHOR         Tyler Hoyt
         //       DATE WRITTEN   May 4, 2010
@@ -3894,6 +3961,7 @@ namespace SolarShading {
         assert(equal_dimensions(HCX, HCC));
 
         // Populate the arrays with the original polygon
+        
         for (size_type j = 0, l = HCX.index(NS1, 1), e = NV1; j < e; ++j, ++l) {
             XTEMP[j] = HCX[l]; // [ l ] == ( NS1, j+1 )
             YTEMP[j] = HCY[l];
@@ -3905,10 +3973,33 @@ namespace SolarShading {
         NVOUT = NV1; // First point-loop is the length of the subject polygon.
         INTFLAG = false;
         NVTEMP = 0;
-        KK = 0;
+
+       
+
+
+        //Check if clipping polygon is rectangle
+        auto l1(HCA.index(NS2, 1));
+        bool rectFlag = false;
+        if (NV2 == 4) {
+            auto slope0 = HCB[l1]   == 0 ? -9999 : -1*HCA[l1]/HCB[l1];
+            auto slope1 = HCB[l1+1] == 0 ? -9999 : -1*HCA[l1+1]/HCB[l1+1];
+            auto slope2 = HCB[l1+2] == 0 ? -9999 : -1*HCA[l1+2]/HCB[l1+2];
+            auto slope3 = HCB[l1+3] == 0 ? -9999 : -1*HCA[l1+3]/HCB[l1+3];
+            if (((slope0 == slope2) && (slope1 == slope3)) && (HCB[l1] == 0 || HCB[l1+1] == 0)) {
+                rectFlag = true;
+            }
+        }
+
+        if (rectFlag) {
+            //do Liang-Barsky
+            CLIPRECT(NS1, NS2, NV1);
+            return;
+        } else {
+        }
+        
 
         auto l(HCA.index(NS2, 1));
-        for (int E = 1; E <= NV2; ++E, ++l) { // Loop over edges of the clipping polygon
+        for (int E = 1; E <= NV2; ++E, ++l) { // Loop over edges of the clipping polygon\n
             for (int P = 1; P <= NVOUT; ++P) {
                 XTEMP1(P) = XTEMP(P);
                 YTEMP1(P) = YTEMP(P);
@@ -3919,6 +4010,7 @@ namespace SolarShading {
             Real64 const HCC_E(HCC[l]);
             Real64 XTEMP1_S(XTEMP1(S));
             Real64 YTEMP1_S(YTEMP1(S));
+
             for (int P = 1; P <= NVOUT; ++P) {
                 Real64 const XTEMP1_P(XTEMP1(P));
                 Real64 const YTEMP1_P(YTEMP1(P));
@@ -3934,11 +4026,13 @@ namespace SolarShading {
                         Real64 const ATEMP_S(ATEMP(S));
                         Real64 const BTEMP_S(BTEMP(S));
                         Real64 const CTEMP_S(CTEMP(S));
+
                         W = HCB_E * ATEMP_S - HCA_E * BTEMP_S;
                         if (W != 0.0) {
                             Real64 const W_inv(1.0 / W);
                             XTEMP(NVTEMP) = nint64((HCC_E * BTEMP_S - HCB_E * CTEMP_S) * W_inv);
                             YTEMP(NVTEMP) = nint64((HCA_E * CTEMP_S - HCC_E * ATEMP_S) * W_inv);
+
                         } else {
                             XTEMP(NVTEMP) = SafeDivide(HCC_E * BTEMP_S - HCB_E * CTEMP_S, W);
                             YTEMP(NVTEMP) = SafeDivide(HCA_E * CTEMP_S - HCC_E * ATEMP_S, W);
@@ -3949,6 +4043,7 @@ namespace SolarShading {
                             if (KK != 0) {
                                 auto const x(XTEMP(NVTEMP));
                                 auto const y(YTEMP(NVTEMP));
+
                                 for (int K = 1; K <= KK; ++K) {
                                     if (std::abs(x - XTEMP(K)) > 2.0) continue;
                                     if (std::abs(y - YTEMP(K)) > 2.0) continue;
@@ -4037,11 +4132,13 @@ namespace SolarShading {
                 if (NVOUT > 2) { // Compute HC values for edges of output polygon
                     Real64 const X_1(XTEMP(1));
                     Real64 const Y_1(YTEMP(1));
+                    
                     Real64 X_P(X_1), X_P1;
                     Real64 Y_P(Y_1), Y_P1;
                     for (int P = 1; P < NVOUT; ++P) {
                         X_P1 = XTEMP(P + 1);
                         Y_P1 = YTEMP(P + 1);
+
                         ATEMP(P) = Y_P - Y_P1;
                         BTEMP(P) = X_P1 - X_P;
                         CTEMP(P) = X_P * Y_P1 - Y_P * X_P1;
