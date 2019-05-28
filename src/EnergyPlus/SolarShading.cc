@@ -49,6 +49,7 @@
 #include <cassert>
 #include <cmath>
 #include <memory>
+#include <chrono>
 
 // ObjexxFCL Headers
 #include <ObjexxFCL/Array.functions.hh>
@@ -171,6 +172,9 @@ namespace SolarShading {
     int const PartialOverlap(4);
     int const TooManyVertices(5);
     int const TooManyFigures(6);
+
+    double Timer_Count;
+    
     Array1D_string const
         cOverLapStatus(6, {"No-Overlap", "1st-Surf-within-2nd", "2nd-Surf-within-1st", "Partial-Overlap", "Too-Many-Vertices", "Too-Many-Figures"});
 
@@ -3830,7 +3834,7 @@ namespace SolarShading {
         }
     }
 
-    void CLIPRECT(int const NS1, int const NS2, int const NV1) {
+    void CLIPRECT(int const NS1, int const NS2, int const NV1, int &NV3) {
         typedef Array2D<Int64>::size_type size_type;
 
         auto l(HCA.index(NS2, 1));
@@ -3851,42 +3855,50 @@ namespace SolarShading {
             if (HCY[l] < minY) {
                 minY = HCY[l];
             }
-            std::cout << HCX[l] << ", " << HCY[l] << "\n";
         }
 
-        int NVTEMP = 0;
-
+        //loop over lines in subject polygon (XTEMP)
+        for (int P = 1; P <= NV1; ++P) {
+            XTEMP1(P) = XTEMP(P);
+            YTEMP1(P) = YTEMP(P);
+        }
+        Real64 arrx[16];
+        Real64 arry[16];
+        int arrc = 0;
+        int k = 0; //count non-overlaps
         for (size_type j = 0, l = HCX.index(NS1, 1), e = NV1, li = HCX.index(NS1, 1); j < e; ++j, ++l) {
-            std::cout << XTEMP[l] << ", " << YTEMP[l] << "\n";
             //grab line endpoints
-            Real64 x1 = XTEMP[l];
-            Real64 y1 = YTEMP[l];
+            Real64 x1 = XTEMP1[j];
+            Real64 y1 = YTEMP1[j];
             Real64 x2;
             Real64 y2;
             if (j + 1 >= e) {
-                x2 = XTEMP[li];
-                y2 = YTEMP[li];
+                x2 = XTEMP1[0];
+                y2 = YTEMP1[0];
             } else {
-                x2 = XTEMP[l+1];
-                y2 = YTEMP[l+1];
+                x2 = XTEMP1[j+1];
+                y2 = YTEMP1[j+1];
             }
-            
-            Real64 p1 = -(x2 - x1);
-            Real64 p2 = -p1;
-            Real64 p3 = -(y2 - y1);
-            Real64 p4 = -p3;
+
+            Real64 p1 = -1*(x2 - x1);
+            Real64 p2 = -1*p1;
+            Real64 p3 = -1*(y2 - y1);
+            Real64 p4 = -1*p3;
 
             Real64 q1 = x1 - minX;
             Real64 q2 = maxX - x1;
             Real64 q3 = y1 - minY;
             Real64 q4 = maxY - y1;
 
-            Real64 minP;
-            Real64 maxP;
+            Real64 minP = 1;
+            Real64 maxP = 0;
 
-            if ((p1 == 0 && q1 < 0) || (p3 == 0 && q3 < 0)) {
+            
+            if ((p1 == 0 && (q1 < 0 || q2 < 0)) || (p3 == 0 && (q3 < 0 || q4 < 0))) {
+                k += 1;
                 continue;
             }
+            
 
             if (p1 != 0) {
                 Real64 r1 = q1 / p1;
@@ -3901,7 +3913,7 @@ namespace SolarShading {
             }
 
             if (p3 != 0) {
-                Real64 r3 = q4 / p4;
+                Real64 r3 = q3 / p3;
                 Real64 r4 = q4 / p4;
                 if (p3 < 0) {
                     maxP = r3 > maxP ? r3 : maxP;
@@ -3913,17 +3925,122 @@ namespace SolarShading {
             }
 
             if (maxP > minP) { //reject
+                k += 1;
                 continue;
             }
 
-            NVTEMP += 1;
-            XTEMP[NVTEMP] = x1 + p2 * maxP;
-            YTEMP[NVTEMP] = y1 + p4 * maxP;
-            NVTEMP += 1;    
-            XTEMP[NVTEMP] = x1 + p2 * minP;
-            YTEMP[NVTEMP] = y1 + p4 * minP;
-
+            Real64 x_1 = x1 + p2 * maxP;
+            Real64 y_1 = y1 + p4 * maxP;
+            if (arrc == 0 || (arrx[arrc-1] != x_1 || arry[arrc-1] != y_1)) {
+                arrx[arrc] = x_1;
+                arry[arrc] = y_1;
+                arrc += 1;
+            }
+            x_1 = x1 + p2 * minP;
+            y_1 =  y1 + p4 * minP;
+            if (arrc == 0 || (arrx[arrc-1] != x_1 || arry[arrc-1] != y_1)) {
+                arrx[arrc] = x_1;
+                arry[arrc] = y_1;
+                arrc += 1;
+            }
         }
+
+        OverlapStatus = k >= 4 ? NoOverlap : FirstSurfWithinSecond;
+        
+        NV3 = arrc;
+        int unsortedBegin = arrc;
+
+        XTEMP.redimension(NV3+16, 0.0);
+        YTEMP.redimension(NV3+16, 0.0);
+        
+        /*
+        std::cout << "\nClipping: ";
+        auto l4(HCA.index(NS2, 1));
+        for (int E = 1; E <= 4; ++E, ++l4) {
+            std::cout << "(" << HCX[l4] << ", " << HCY[l4] << "), ";
+        }
+        std::cout << "Subject: ";
+        for (int P = 1; P <= NV1; ++P) {
+            std::cout << "(" << XTEMP(P) << ", " << YTEMP(P) << "), ";
+        }
+        */
+        
+
+        //add corners, then sort. Otherwise we'd have to sort first then go around the shell, which is just as difficult.
+        for (Real64 cx = minX, i5 = 0; i5 < 2; cx = maxX, i5++) {
+            for (Real64 cy = minY, k5 = 0; k5 < 2; cy = maxY, k5++) {
+                //add corner if inside 
+                int currentSide = -1;
+                bool insideFlag = true;
+                for (size_type j = 0, l5 = HCX.index(NS1, 1), e = NV1, l50 = HCX.index(NS1, 1); j < e; ++j, ++l5) {
+                    //Point is HCX[l5], HCY[l5]
+                    Real64 px = HCX[l5];
+                    Real64 py = HCY[l5];
+                    Real64 px1;
+                    Real64 py1;
+                    if (j + 1 >= e) {
+                        px1 =  HCX[l50];
+                        py1 =  HCY[l50];
+                    } else {
+                        px1 =  HCX[l5+1];
+                        py1 =  HCY[l5+1];
+                    }
+                    Real64 dx = px1 - px;
+                    Real64 dy = py1 - py;
+                    Real64 dx1 = cx - px;
+                    Real64 dy1 = cy - py;
+                    Real64 xprod = dx*dx1 + dy*dy1;
+                    int side;
+                    if (xprod < 0) {
+                        side = 0;
+                    } else {
+                        side = 1;
+                    }
+                    //std::cout << "side " << side << "\n";
+                    if (currentSide == -1) {
+                        currentSide = side;
+                    } else {
+                        if (currentSide != side) {
+                            insideFlag = false;
+                            break;
+                        }
+                        currentSide = side;
+                    }
+                }
+                    //std::cout << "\n";
+
+                if (insideFlag) {
+                    arrx[arrc] = cx;
+                    arry[arrc] = cy;
+                    arrc += 1;
+                    NV3 += 1;
+                }
+            }
+        }
+
+        //Sort vertices clockwise around center of final polygon, into TEMP
+        //Use insertion sort starting at index before corners are added
+        Real64 centerX = (minX + maxX) / 2;
+        Real64 centerY = (minY + maxY) / 2;
+        for (;unsortedBegin < NV3; unsortedBegin++) {
+            Real64 currX = arrx[unsortedBegin];
+            Real64 currY = arry[unsortedBegin];
+            int j3 = unsortedBegin - 1;
+            while (j3 >= 0 && ((arrx[j3] - centerX) * (currY - centerY) - (currX - centerX) * (arry[j3] - centerY)) > 0) { 
+                arrx[j3 + 1] = arrx[j3]; 
+                arry[j3 + 1] = arry[j3]; 
+                j3 = j3 - 1; 
+            } 
+            arrx[j3 + 1] = currX; 
+            arry[j3 + 1] = currY; 
+        }
+
+        for (int k = 0; k < NV3; k++) {
+            XTEMP[k] = arrx[k];
+            YTEMP[k] = arry[k];
+            //std::cout << "(" << XTEMP[k] << ", " << YTEMP[k] << "), ";
+        }
+        //std::cout << "\n";
     }
 
     void CLIPPOLY(int const NS1, // Figure number of figure 1 (The subject polygon)
@@ -3933,6 +4050,7 @@ namespace SolarShading {
                   int &NV3       // Number of vertices of figure 3
     )
     {
+        auto start = std::chrono::high_resolution_clock::now(); 
         // SUBROUTINE INFORMATION:
         //       AUTHOR         Tyler Hoyt
         //       DATE WRITTEN   May 4, 2010
@@ -4004,26 +4122,52 @@ namespace SolarShading {
 
        
 
-
+        
         //Check if clipping polygon is rectangle
         auto l1(HCA.index(NS2, 1));
         bool rectFlag = false;
         if (NV2 == 4) {
-            auto slope0 = HCB[l1]   == 0 ? -9999 : -1*HCA[l1]/HCB[l1];
-            auto slope1 = HCB[l1+1] == 0 ? -9999 : -1*HCA[l1+1]/HCB[l1+1];
-            auto slope2 = HCB[l1+2] == 0 ? -9999 : -1*HCA[l1+2]/HCB[l1+2];
-            auto slope3 = HCB[l1+3] == 0 ? -9999 : -1*HCA[l1+3]/HCB[l1+3];
-            if (((slope0 == slope2) && (slope1 == slope3)) && (HCB[l1] == 0 || HCB[l1+1] == 0)) {
-                rectFlag = true;
+            //check rectangle TODO
+            if (HCX[l1] == HCX[l1+1] && HCY[l1] != HCY[l1+1]) {
+                if (HCY[l1+2] == HCY[l1+1] && HCY[l1+3] == HCY[l1]) {
+                    if (HCX[l1+2] == HCX[l1+3]) {
+                        rectFlag = true;
+                    }
+                }
+            } else if (HCY[l1] == HCY[l1+1] && HCX[l1] != HCX[l1+1]) {
+                if (HCX[l1+2] == HCX[l1+1] && HCX[l1+3] == HCX[l1]) {
+                    if (HCY[l1+2] == HCY[l1+3]) {
+                        rectFlag = true;
+                    }
+                }
             }
         }
 
+        
+
         if (rectFlag) {
-            //do Liang-Barsky
-            CLIPRECT(NS1, NS2, NV1);
+            CLIPRECT(NS1, NS2, NV1, NV3); //needs to out overlap status
+            //std::cout << "RECTANGLE\n";
+            /*
+            std::cout << "RECT: ";
+            for (int k = 0; k < NV3; k++) {
+                std::cout << "(" << XTEMP[k] << ", " << YTEMP[k] << "), ";
+            }
+            */
             return;
         } else {
+            //std::cout << "NOTRECTANGLE\n";
         }
+
+        //reset for testing
+        for (size_type j = 0, l = HCX.index(NS1, 1), e = NV1; j < e; ++j, ++l) {
+            XTEMP[j] = HCX[l]; // [ l ] == ( NS1, j+1 )
+            YTEMP[j] = HCY[l];
+            ATEMP[j] = HCA[l];
+            BTEMP[j] = HCB[l];
+            CTEMP[j] = HCC[l];
+        }
+
         
 
         auto l(HCA.index(NS2, 1));
@@ -4084,7 +4228,7 @@ namespace SolarShading {
 
                     KK = NVTEMP;
                     ++NVTEMP;
-                    if (NVTEMP > MAXHCArrayBounds) {
+                    if (NVTEMP > MAXHCArrayBounds) { //sppedup?
                         int const NewArrayBounds(MAXHCArrayBounds + MAXHCArrayIncrement);
                         XTEMP.redimension(NewArrayBounds, 0.0);
                         YTEMP.redimension(NewArrayBounds, 0.0);
@@ -4188,6 +4332,29 @@ namespace SolarShading {
         } else if (!INTFLAG) {
             OverlapStatus = FirstSurfWithinSecond;
         }
+        
+        /*
+        auto stop = std::chrono::high_resolution_clock::now(); 
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+        double duration_count = duration.count();
+        Timer_Count += duration_count;
+        std::cout << "Timer count: " << Timer_Count << "\n";
+        */
+       
+        /*
+        if (rectFlag) {
+            std::cout << "\nTEST: ";
+            for (int k6 = 0; k6 < NV3; k6++) {
+                std::cout << "(" << XTEMP[k6] << ", " << YTEMP[k6] << "), ";
+            }
+            std::cout << "\n";
+            return;
+        } else {
+        }
+        */
+        
+        
+       
     }
 
     void MULTOL(int const NNN,   // argument
