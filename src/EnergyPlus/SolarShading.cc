@@ -3834,6 +3834,31 @@ namespace SolarShading {
         }
     }
 
+    inline bool compareClockwise(Real64 p1x, Real64 p1y, Real64 p2x, Real64 p2y, Real64 cx, Real64 cy) {
+        if (p1x- cx >= 0 && p2x - cx < 0)
+            return true;
+        if (p1x- cx < 0 && p2x - cx >= 0)
+            return false;
+        if (p1x - cx == 0 && p2x- cx == 0) {
+            if (p1y - cy >= 0 || p2y - cy >= 0)
+                return p1y > p2y;
+            return p2y > p1y;
+        }
+
+        // compute the cross product of vectors (center -> a) x (center -> b)
+        int det = ((p1x - cx) * (p2y - cy)) - ((p2x - cx) * (p1y - cy));
+        if (det < 0)
+            return true;
+        if (det > 0)
+            return false;
+
+        // points a and b are on the same line from the center
+        // check which point is closer to the center
+        int d1 = (p1x- cx) * (p1x -cx) + (p1y - cy) * (p1y - cy);
+        int d2 = (p2x- cx) * (p2x - cx) + (p2y - cy) * (p2y - cy);
+        return d1 > d2;
+    }
+
     void CLIPRECT(int const NS1, int const NS2, int const NV1, int &NV3) {
         typedef Array2D<Int64>::size_type size_type;
 
@@ -3958,8 +3983,6 @@ namespace SolarShading {
                         insideFlag = !insideFlag;
                     }
                 }
-                    //std::cout << "\n";
-
                 if (insideFlag) {
                     arrx[arrc] = cx;
                     arry[arrc] = cy;
@@ -3969,17 +3992,16 @@ namespace SolarShading {
                 }
             }
         }
-
-        
     
-        //uniq list of points -- potential source of error here, when slight error causes points
+        //make uniq list of points -- potential source of error here, when slight error causes points
         // that are supposed to be the same are both kept
+        Real64 thresh = 10;
         int testk = arrc;
         int incr = 0;
         for (int p_1 = 0; p_1 < arrc; p_1++) {
             bool flag = true;
             for (int p_2 = 0; p_2 < p_1; p_2++) {
-                if (arrx[p_2] == arrx[p_1] && arry[p_2] == arry[p_1]) {
+                if (std::abs(arrx[p_2] - arrx[p_1]) < thresh && std::abs(arry[p_2]- arry[p_1]) < thresh) {
                     flag = false;
                     break;
                 }
@@ -3995,19 +4017,29 @@ namespace SolarShading {
 
         //Sort vertices clockwise around center of final polygon, into TEMP
         //Use insertion sort 
-        Real64 centerX = (minX + maxX) / 2;
-        Real64 centerY = (minY + maxY) / 2;
-        for (int unsortedBegin = 1; unsortedBegin < arrc; unsortedBegin++) {
-            Real64 currX = arrx[unsortedBegin];
-            Real64 currY = arry[unsortedBegin];
-            int j3 = unsortedBegin - 1;
-            while (j3 >= 0 && ((arrx[j3] - centerX) * (currY - centerY) - (currX - centerX) * (arry[j3] - centerY)) > 0) { 
-                arrx[j3 + 1] = arrx[j3]; 
-                arry[j3 + 1] = arry[j3]; 
-                j3 = j3 - 1; 
-            } 
-            arrx[j3 + 1] = currX; 
-            arry[j3 + 1] = currY; 
+        if (NV3 > 2) {
+            Real64 centerX = 0;
+            Real64 centerY = 0;
+            //use center of mass
+            for (int i = 0; i < NV3; i++) {
+                centerX += arrx[i];
+                centerY += arry[i];
+            }
+            centerX /= NV3;
+            centerY /= NV3;
+            
+            for (int unsortedBegin = 1; unsortedBegin < arrc; unsortedBegin++) {
+                Real64 currX = arrx[unsortedBegin];
+                Real64 currY = arry[unsortedBegin];
+                int j3 = unsortedBegin - 1;
+                while (j3 >= 0 && atan2((currY-centerY),(currX - centerX)) > atan2((arry[j3]-centerY),(arrx[j3] - centerX))){//!compareClockwise(currX, currY, arrx[j3], arry[j3], centerX, centerY)) { 
+                    arrx[j3 + 1] = arrx[j3]; 
+                    arry[j3 + 1] = arry[j3]; 
+                    j3 = j3 - 1; 
+                } 
+                arrx[j3 + 1] = currX; 
+                arry[j3 + 1] = currY; 
+            }
         }
 
         for (int k = 0; k < NV3; k++) {
@@ -4016,6 +4048,7 @@ namespace SolarShading {
         }
        
         /// Determine overlap status
+        
         if (NV3 < 3) {
             OverlapStatus = NoOverlap;
         } else {
@@ -4038,6 +4071,7 @@ namespace SolarShading {
                 OverlapStatus = FirstSurfWithinSecond;
             }
         }
+        
 
         //update homogenous edges A,B,C (no effect on failing test case)
         if (NV3 > 2) {
@@ -4060,31 +4094,6 @@ namespace SolarShading {
             BTEMP(NV3) = X_1 - X_P1;
             CTEMP(NV3) = X_P1 * Y_1 - Y_P1 * X_1;
         }
-    }
-
-    //debug test method
-    bool rotateEq(Real64* ax1, Real64* ay1, Real64* ax2,  Real64* ay2, int al1, int al2) {
-        //start at each indice
-        if (al1 != al2) {
-            return false;
-        }
-        if (al1 < 3) {
-            return true;
-        }
-        for (int offset = 0; offset < al1; offset++ )
-            {
-                bool isEqual = true;
-                for (int i = 0; i < al1; i++) {
-                    if (ax1[i] != ax2[(i+offset)%al1] || ay1[i] != ay2[(i+offset)%al1]) {
-                        isEqual = false;
-                        break;
-                    }
-                }
-                if (isEqual) {
-                    return true;
-                }
-            }
-        return false;
     }
 
     void CLIPPOLY(int const NS1, // Figure number of figure 1 (The subject polygon)
@@ -4186,53 +4195,12 @@ namespace SolarShading {
         }
 
         
-        std::string mesg = "";
-        //int nv3Test;
-        Real64 ax1[16];
-        Real64 ay1[16];
-        int al1;
-        int ove1;
-
         if (rectFlag) {
-
             CLIPRECT(NS1, NS2, NV1, NV3);
-            al1 = NV3;
-            for (int f8 = 0; f8 < NV3; f8++) {
-                ax1[f8] = XTEMP[f8];
-                ay1[f8] = YTEMP[f8];
-            }
-                mesg += "\nClipping: ";
-                auto l4(HCA.index(NS2, 1));
-                for (int E = 1; E <= 4; ++E, ++l4) {
-                    mesg += "(" + std::to_string(HCX[l4]) + ", " + std::to_string(HCY[l4]) + "), ";
-                }
-                mesg += "Subject: ";
-                for (size_type j = 0, l = HCX.index(NS1, 1), e = NV1; j < e; ++j, ++l) {
-                    mesg += "(" + std::to_string(HCX[l]) + ", " + std::to_string(HCY[l]) + "), ";
-                }
-                mesg += "RECT: ";
-                for (int k = 0; k < NV3; k++) {
-                    mesg += "(" + std::to_string(XTEMP[k]) + ", " + std::to_string(YTEMP[k]) + "), ";
-                }
-                ove1 = OverlapStatus;
-                mesg += "OverlapStatus: " + std::to_string(OverlapStatus) + "\n";
-            //std::cout << "RECTANGLE\n";
             return;
-                OverlapStatus = 4; //restore
         } else {
             //std::cout << "NOTRECTANGLE\n";
         }
-
-        //reset for testing
-        for (size_type j = 0, l = HCX.index(NS1, 1), e = NV1; j < e; ++j, ++l) {
-            XTEMP[j] = HCX[l]; // [ l ] == ( NS1, j+1 )
-            YTEMP[j] = HCY[l];
-            ATEMP[j] = HCA[l];
-            BTEMP[j] = HCB[l];
-            CTEMP[j] = HCC[l];
-        }
-
-        
 
         auto l(HCA.index(NS2, 1));
         for (int E = 1; E <= NV2; ++E, ++l) { // Loop over edges of the clipping polygon\n
@@ -4396,38 +4364,6 @@ namespace SolarShading {
         } else if (!INTFLAG) {
             OverlapStatus = FirstSurfWithinSecond;
         }
-        
-        /*
-        auto stop = std::chrono::high_resolution_clock::now(); 
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-        double duration_count = duration.count();
-        Timer_Count += duration_count;
-        std::cout << "Timer count: " << Timer_Count << "\n";
-        */
-        /*
-        Real64 ax2[16];
-        Real64 ay2[16];
-        int al2;
-        al2 = NV3;
-        for (int f8 = 0; f8 < NV3; f8++) {
-            ax2[f8] = XTEMP[f8];
-            ay2[f8] = YTEMP[f8];
-        }
-
-        if (rectFlag && ove1 != OverlapStatus) {//!rotateEq(ax1, ay1, ax2, ay2, al1, al2)) {
-            std::cout << mesg;
-            std::cout << "OverlapStatus " << OverlapStatus << "\n";
-            std::cout << "TEST: ";
-            for (int k6 = 0; k6 < NV3; k6++) {
-                std::cout << "(" << XTEMP[k6] << ", " << YTEMP[k6] << "), ";
-            }
-            std::cout << "\n";
-            return;
-        } else {
-        }
-        */
-        
-       
     }
 
     void MULTOL(int const NNN,   // argument
