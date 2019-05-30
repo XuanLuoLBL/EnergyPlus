@@ -3834,31 +3834,6 @@ namespace SolarShading {
         }
     }
 
-    inline bool compareClockwise(Real64 p1x, Real64 p1y, Real64 p2x, Real64 p2y, Real64 cx, Real64 cy) {
-        if (p1x- cx >= 0 && p2x - cx < 0)
-            return true;
-        if (p1x- cx < 0 && p2x - cx >= 0)
-            return false;
-        if (p1x - cx == 0 && p2x- cx == 0) {
-            if (p1y - cy >= 0 || p2y - cy >= 0)
-                return p1y > p2y;
-            return p2y > p1y;
-        }
-
-        // compute the cross product of vectors (center -> a) x (center -> b)
-        int det = ((p1x - cx) * (p2y - cy)) - ((p2x - cx) * (p1y - cy));
-        if (det < 0)
-            return true;
-        if (det > 0)
-            return false;
-
-        // points a and b are on the same line from the center
-        // check which point is closer to the center
-        int d1 = (p1x- cx) * (p1x -cx) + (p1y - cy) * (p1y - cy);
-        int d2 = (p2x- cx) * (p2x - cx) + (p2y - cy) * (p2y - cy);
-        return d1 > d2;
-    }
-
     void CLIPRECT(int const NS1, int const NS2, int const NV1, int &NV3) {
         typedef Array2D<Int64>::size_type size_type;
 
@@ -4032,7 +4007,7 @@ namespace SolarShading {
                 Real64 currX = arrx[unsortedBegin];
                 Real64 currY = arry[unsortedBegin];
                 int j3 = unsortedBegin - 1;
-                while (j3 >= 0 && atan2((currY-centerY),(currX - centerX)) > atan2((arry[j3]-centerY),(arrx[j3] - centerX))){//!compareClockwise(currX, currY, arrx[j3], arry[j3], centerX, centerY)) { 
+                while (j3 >= 0 && atan2((currY-centerY),(currX - centerX)) > atan2((arry[j3]-centerY),(arrx[j3] - centerX))) {
                     arrx[j3 + 1] = arrx[j3]; 
                     arry[j3 + 1] = arry[j3]; 
                     j3 = j3 - 1; 
