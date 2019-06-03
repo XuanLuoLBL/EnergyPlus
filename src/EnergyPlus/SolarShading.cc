@@ -4016,10 +4016,16 @@ namespace SolarShading {
                 Real64 currY = arry[unsortedBegin];
                 int j3 = unsortedBegin - 1;
                 
-                while (j3 >= 0 && atan2((currY-centerY),(currX - centerX)) > atan2((arry[j3]-centerY),(arrx[j3] - centerX))) {
+                Real64 dx1 = currX - centerX;
+                Real64 dy1 = currY - centerY;
+                Real64 dx2 = arrx[j3] - centerX; 
+                Real64 dy2 = arry[j3] - centerY;
+                while (j3 >= 0 && copysign(1. - dx1/(fabs(dx1)+fabs(dy1)),dy1) > copysign(1. - dx2/(fabs(dx2)+fabs(dy2)),dy2)) {
                     arrx[j3 + 1] = arrx[j3]; 
                     arry[j3 + 1] = arry[j3]; 
                     j3 --; 
+                    dx2 = arrx[j3] - centerX; 
+                    dy2 = arry[j3] - centerY;
                 } 
                 
                 arrx[j3 + 1] = currX; 
@@ -4034,9 +4040,6 @@ namespace SolarShading {
             YTEMP[k] = arry[k];
         }
        
-        /// Determine overlap status
-        
-        
         //update homogenous edges A,B,C (no effect on failing test case)
         if (NV3 > 2) {
             Real64 const X_1(XTEMP(1));
@@ -4058,7 +4061,8 @@ namespace SolarShading {
             BTEMP(NV3) = X_1 - X_P1;
             CTEMP(NV3) = X_P1 * Y_1 - Y_P1 * X_1;
         }
-
+        
+        //Determine overlap status
         if (NV3 < 3) {
             OverlapStatus = NoOverlap;
         } else {
@@ -4139,7 +4143,7 @@ namespace SolarShading {
         ++NumClipPoly_Calls;
 #endif
         // Tuned Linear indexing
-
+auto start = std::chrono::high_resolution_clock::now(); 
         assert(equal_dimensions(HCX, HCY));
         assert(equal_dimensions(HCX, HCA));
         assert(equal_dimensions(HCX, HCB));
@@ -4178,11 +4182,17 @@ namespace SolarShading {
             }
         }
 
+
         if (rectFlag) {
             CLIPRECT(NS1, NS2, NV1, NV3);
+            auto stop = std::chrono::high_resolution_clock::now(); 
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+        double duration_count = duration.count();
+        Timer_Count += duration_count;
+        std::cout << "Timer count: " << Timer_Count << "\n";
             return;
         } 
-
+        
         auto l(HCA.index(NS2, 1));
         for (int E = 1; E <= NV2; ++E, ++l) { // Loop over edges of the clipping polygon\n
             for (int P = 1; P <= NVOUT; ++P) {
@@ -4345,6 +4355,11 @@ namespace SolarShading {
         } else if (!INTFLAG) {
             OverlapStatus = FirstSurfWithinSecond;
         }
+        auto stop = std::chrono::high_resolution_clock::now(); 
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+        double duration_count = duration.count();
+        Timer_Count += duration_count;
+        std::cout << "Timer count: " << Timer_Count << "\n";
     }
 
     void MULTOL(int const NNN,   // argument
