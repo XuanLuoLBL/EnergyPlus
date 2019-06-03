@@ -142,7 +142,7 @@ TEST_F(EnergyPlusFixture, PolygonTest_TestTest)
     int t_i = 100;
     int k = 0;
     for (int i = 0; i < (iterations/4)*4; i++) { //heat up cache
-        CLIPPOLY(NS1, NS2, NV1, NV2, NV3);
+        CLIPPOLY_baseline(NS1, NS2, NV1, NV2, NV3);
     }
     auto start = std::chrono::high_resolution_clock::now(); 
     auto stop = std::chrono::high_resolution_clock::now(); 
@@ -151,7 +151,7 @@ TEST_F(EnergyPlusFixture, PolygonTest_TestTest)
     for (int m = 0; m < t_i; m++) {
         start = std::chrono::high_resolution_clock::now(); 
         for (int i = 0; i < (iterations/4)*4; i++) {
-            CLIPPOLY(NS1, NS2, NV1, NV2, NV3);
+            CLIPPOLY_baseline(NS1, NS2, NV1, NV2, NV3);
         }
         stop = std::chrono::high_resolution_clock::now();
         duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
@@ -161,7 +161,7 @@ TEST_F(EnergyPlusFixture, PolygonTest_TestTest)
     for (int m = 0; m < t_i; m++) {
         start = std::chrono::high_resolution_clock::now(); 
         for (int i = 0; i < (iterations/4)*4; i++) {
-            //CLIPPOLY_TEST(NS1, NS2, NV1, NV2, NV3);
+            CLIPPOLY(NS1, NS2, NV1, NV2, NV3);
         }
         stop = std::chrono::high_resolution_clock::now();
         duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);

@@ -4143,7 +4143,6 @@ namespace SolarShading {
         ++NumClipPoly_Calls;
 #endif
         // Tuned Linear indexing
-auto start = std::chrono::high_resolution_clock::now(); 
         assert(equal_dimensions(HCX, HCY));
         assert(equal_dimensions(HCX, HCA));
         assert(equal_dimensions(HCX, HCB));
@@ -4185,11 +4184,6 @@ auto start = std::chrono::high_resolution_clock::now();
 
         if (rectFlag) {
             CLIPRECT(NS1, NS2, NV1, NV3);
-            auto stop = std::chrono::high_resolution_clock::now(); 
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-        double duration_count = duration.count();
-        Timer_Count += duration_count;
-        std::cout << "Timer count: " << Timer_Count << "\n";
             return;
         } 
         
@@ -4355,11 +4349,244 @@ auto start = std::chrono::high_resolution_clock::now();
         } else if (!INTFLAG) {
             OverlapStatus = FirstSurfWithinSecond;
         }
-        auto stop = std::chrono::high_resolution_clock::now(); 
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-        double duration_count = duration.count();
-        Timer_Count += duration_count;
-        std::cout << "Timer count: " << Timer_Count << "\n";
+    }
+
+    void CLIPPOLY_baseline(int const NS1, // Figure number of figure 1 (The subject polygon)
+                  int const NS2, // Figure number of figure 2 (The clipping polygon)
+                  int const NV1, // Number of vertices of figure 1
+                  int const NV2, // Number of vertices of figure 2
+                  int &NV3       // Number of vertices of figure 3
+    )
+    {
+        // SUBROUTINE INFORMATION:
+        //       AUTHOR         Tyler Hoyt
+        //       DATE WRITTEN   May 4, 2010
+        //       MODIFIED       na
+        //       RE-ENGINEERED  na
+
+        // PURPOSE OF THIS SUBROUTINE:
+        // Populate global arrays XTEMP and YTEMP with the vertices
+        // of the overlap between NS1 and NS2, and determine relevant
+        // overlap status.
+
+        // METHODOLOGY EMPLOYED:
+        // The Sutherland-Hodgman algorithm for polygon clipping is employed.
+
+        // METHODOLOGY EMPLOYED:
+
+        // REFERENCES:
+
+        // Using/Aliasing
+        using General::ReallocateRealArray;
+        using General::SafeDivide;
+
+        // Locals
+        // SUBROUTINE ARGUMENT DEFINITIONS:
+
+        // SUBROUTINE PARAMETER DEFINITIONS:
+        // na
+
+        // INTERFACE BLOCK SPECIFICATIONS
+        // na
+
+        // DERIVED TYPE DEFINITIONS
+        // na
+
+        // SUBROUTINE LOCAL VARIABLE DECLARATIONS:
+        typedef Array2D<Int64>::size_type size_type;
+        bool INTFLAG; // For overlap status
+        int S;        // Test vertex
+        int KK;       // Duplicate test index
+        int NVOUT;    // Current output length for loops
+        int NVTEMP;
+
+        Real64 W; // Normalization factor
+        Real64 HFunct;
+
+#ifdef EP_Count_Calls
+        ++NumClipPoly_Calls;
+#endif
+        // Tuned Linear indexing
+        assert(equal_dimensions(HCX, HCY));
+        assert(equal_dimensions(HCX, HCA));
+        assert(equal_dimensions(HCX, HCB));
+        assert(equal_dimensions(HCX, HCC));
+
+        // Populate the arrays with the original polygon
+        for (size_type j = 0, l = HCX.index(NS1, 1), e = NV1; j < e; ++j, ++l) {
+            XTEMP[j] = HCX[l]; // [ l ] == ( NS1, j+1 )
+            YTEMP[j] = HCY[l];
+            ATEMP[j] = HCA[l];
+            BTEMP[j] = HCB[l];
+            CTEMP[j] = HCC[l];
+        }
+
+        NVOUT = NV1; // First point-loop is the length of the subject polygon.
+        INTFLAG = false;
+        NVTEMP = 0;
+        
+        auto l(HCA.index(NS2, 1));
+        for (int E = 1; E <= NV2; ++E, ++l) { // Loop over edges of the clipping polygon\n
+            for (int P = 1; P <= NVOUT; ++P) {
+                XTEMP1(P) = XTEMP(P);
+                YTEMP1(P) = YTEMP(P);
+            }
+            S = NVOUT;
+            Real64 const HCA_E(HCA[l]);
+            Real64 const HCB_E(HCB[l]);
+            Real64 const HCC_E(HCC[l]);
+            Real64 XTEMP1_S(XTEMP1(S));
+            Real64 YTEMP1_S(YTEMP1(S));
+
+            for (int P = 1; P <= NVOUT; ++P) {
+                Real64 const XTEMP1_P(XTEMP1(P));
+                Real64 const YTEMP1_P(YTEMP1(P));
+                HFunct = XTEMP1_P * HCA_E + YTEMP1_P * HCB_E + HCC_E;
+                // S is constant within this block
+                if (HFunct <= 0.0) { // Vertex is not in the clipping plane
+                    HFunct = XTEMP1_S * HCA_E + YTEMP1_S * HCB_E + HCC_E;
+                    if (HFunct > 0.0) { // Test vertex is in the clipping plane
+
+                        // Find/store the intersection of the clip edge and the line connecting S and P
+                        KK = NVTEMP;
+                        ++NVTEMP;
+                        Real64 const ATEMP_S(ATEMP(S));
+                        Real64 const BTEMP_S(BTEMP(S));
+                        Real64 const CTEMP_S(CTEMP(S));
+
+                        W = HCB_E * ATEMP_S - HCA_E * BTEMP_S;
+                        if (W != 0.0) {
+                            Real64 const W_inv(1.0 / W);
+                            XTEMP(NVTEMP) = nint64((HCC_E * BTEMP_S - HCB_E * CTEMP_S) * W_inv);
+                            YTEMP(NVTEMP) = nint64((HCA_E * CTEMP_S - HCC_E * ATEMP_S) * W_inv);
+
+                        } else {
+                            XTEMP(NVTEMP) = SafeDivide(HCC_E * BTEMP_S - HCB_E * CTEMP_S, W);
+                            YTEMP(NVTEMP) = SafeDivide(HCA_E * CTEMP_S - HCC_E * ATEMP_S, W);
+                        }
+                        INTFLAG = true;
+
+                        if (E == NV2) { // Remove near-duplicates on last edge
+                            if (KK != 0) {
+                                auto const x(XTEMP(NVTEMP));
+                                auto const y(YTEMP(NVTEMP));
+
+                                for (int K = 1; K <= KK; ++K) {
+                                    if (std::abs(x - XTEMP(K)) > 2.0) continue;
+                                    if (std::abs(y - YTEMP(K)) > 2.0) continue;
+                                    NVTEMP = KK;
+                                    break; // K loop
+                                }
+                            }
+                        }
+                    }
+
+                    KK = NVTEMP;
+                    ++NVTEMP;
+                    if (NVTEMP > MAXHCArrayBounds) {
+                        int const NewArrayBounds(MAXHCArrayBounds + MAXHCArrayIncrement);
+                        XTEMP.redimension(NewArrayBounds, 0.0);
+                        YTEMP.redimension(NewArrayBounds, 0.0);
+                        XTEMP1.redimension(NewArrayBounds, 0.0);
+                        YTEMP1.redimension(NewArrayBounds, 0.0);
+                        ATEMP.redimension(NewArrayBounds, 0.0);
+                        BTEMP.redimension(NewArrayBounds, 0.0);
+                        CTEMP.redimension(NewArrayBounds, 0.0);
+                        MAXHCArrayBounds = NewArrayBounds;
+                    }
+
+                    XTEMP(NVTEMP) = XTEMP1_P;
+                    YTEMP(NVTEMP) = YTEMP1_P;
+
+                    if (E == NV2) { // Remove near-duplicates on last edge
+                        if (KK != 0) {
+                            auto const x(XTEMP(NVTEMP));
+                            auto const y(YTEMP(NVTEMP));
+                            for (int K = 1; K <= KK; ++K) {
+                                if (std::abs(x - XTEMP(K)) > 2.0) continue;
+                                if (std::abs(y - YTEMP(K)) > 2.0) continue;
+                                NVTEMP = KK;
+                                break; // K loop
+                            }
+                        }
+                    }
+
+                } else {
+                    HFunct = XTEMP1_S * HCA_E + YTEMP1_S * HCB_E + HCC_E;
+                    if (HFunct <= 0.0) {                                // Test vertex is not in the clipping plane
+                        if (NVTEMP < 2 * (MaxVerticesPerSurface + 1)) { // avoid assigning to element outside of XTEMP array size
+                            KK = NVTEMP;
+                            ++NVTEMP;
+                            Real64 const ATEMP_S(ATEMP(S));
+                            Real64 const BTEMP_S(BTEMP(S));
+                            Real64 const CTEMP_S(CTEMP(S));
+                            W = HCB_E * ATEMP_S - HCA_E * BTEMP_S;
+                            if (W != 0.0) {
+                                Real64 const W_inv(1.0 / W);
+                                XTEMP(NVTEMP) = nint64((HCC_E * BTEMP_S - HCB_E * CTEMP_S) * W_inv);
+                                YTEMP(NVTEMP) = nint64((HCA_E * CTEMP_S - HCC_E * ATEMP_S) * W_inv);
+                            } else {
+                                XTEMP(NVTEMP) = SafeDivide(HCC_E * BTEMP_S - HCB_E * CTEMP_S, W);
+                                YTEMP(NVTEMP) = SafeDivide(HCA_E * CTEMP_S - HCC_E * ATEMP_S, W);
+                            }
+                            INTFLAG = true;
+
+                            if (E == NV2) { // Remove near-duplicates on last edge
+                                if (KK != 0) {
+                                    auto const x(XTEMP(NVTEMP));
+                                    auto const y(YTEMP(NVTEMP));
+                                    for (int K = 1; K <= KK; ++K) {
+                                        if (std::abs(x - XTEMP(K)) > 2.0) continue;
+                                        if (std::abs(y - YTEMP(K)) > 2.0) continue;
+                                        NVTEMP = KK;
+                                        break; // K loop
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                S = P;
+                XTEMP1_S = XTEMP1_P;
+                YTEMP1_S = YTEMP1_P;
+            } // end loop over points of subject polygon
+
+            NVOUT = NVTEMP;
+            if (NVOUT == 0) break; // Added to avoid array bounds violation of XTEMP1 and YTEMP1 and wasted looping
+            NVTEMP = 0;
+
+            if (E != NV2) {
+                if (NVOUT > 2) { // Compute HC values for edges of output polygon
+                    Real64 const X_1(XTEMP(1));
+                    Real64 const Y_1(YTEMP(1));
+                    
+                    Real64 X_P(X_1), X_P1;
+                    Real64 Y_P(Y_1), Y_P1;
+                    for (int P = 1; P < NVOUT; ++P) {
+                        X_P1 = XTEMP(P + 1);
+                        Y_P1 = YTEMP(P + 1);
+
+                        ATEMP(P) = Y_P - Y_P1;
+                        BTEMP(P) = X_P1 - X_P;
+                        CTEMP(P) = X_P * Y_P1 - Y_P * X_P1;
+                        X_P = X_P1;
+                        Y_P = Y_P1;
+                    }
+                    ATEMP(NVOUT) = Y_P1 - Y_1;
+                    BTEMP(NVOUT) = X_1 - X_P1;
+                    CTEMP(NVOUT) = X_P1 * Y_1 - Y_P1 * X_1;
+                }
+            }
+
+        } // end loop over edges in NS2
+
+        NV3 = NVOUT;
+
+        if (NV3 < 3) { // Determine overlap status
+            OverlapStatus = NoOverlap;
+        } else if (!INTFLAG) {
+            OverlapStatus = FirstSurfWithinSecond;
+        }
     }
 
     void MULTOL(int const NNN,   // argument

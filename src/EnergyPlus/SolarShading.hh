@@ -267,6 +267,14 @@ namespace SolarShading {
                   int &NV3       // Number of vertices of figure 3
     );
 
+    void CLIPPOLY_baseline(int const NS1, // Figure number of figure 1 (The subject polygon)
+                  int const NS2, // Figure number of figure 2 (The clipping polygon)
+                  int const NV1, // Number of vertices of figure 1
+                  int const NV2, // Number of vertices of figure 2
+                  int &NV3       // Number of vertices of figure 3
+    );
+
+
     void MULTOL(int const NNN,   // argument
                 int const LOC0,  // Location in the homogeneous coordinate array
                 int const NRFIGS // Number of figures overlapped
