@@ -130,6 +130,7 @@ set( test_src
   PlantChillers.unit.cc
   PlantCondLoopOperation.unit.cc
   PlantUtilities.unit.cc
+  PolygonTest.unit.cc
   PoweredInductionUnits.unit.cc
   Pumps.unit.cc
   PurchasedAirManager.unit.cc
