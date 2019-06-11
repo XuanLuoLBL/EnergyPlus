@@ -49,6 +49,7 @@
 #include <cassert>
 #include <cmath>
 #include <string>
+#include <chrono>
 
 // ObjexxFCL Headers
 #include <ObjexxFCL/Fmath.hh>
@@ -8585,7 +8586,8 @@ namespace DXCoils {
         // Henderson, H.I. Jr., Danny Parker and Y.J. Huang. 2000.Improving DOE-2's RESYS routine:
         // User Defined Functions to Provide More Accurate Part Load Energy Use and Humidity
         // Predictions. Proceedings of ACEEE Conference.
-
+ static double Timer_Count1;
+ static double Timer_Count2;
         // Using/Aliasing
         using CurveManager::CurveValue;
         using DataGlobals::CurrentTime;
@@ -8965,6 +8967,7 @@ namespace DXCoils {
             //  InletAirHumRat may be modified in this ADP/BF loop, use temporary varible for calculations
             InletAirHumRatTemp = InletAirHumRat;
             AirMassFlowRatio = AirMassFlow / DXCoil(DXCoilNum).RatedAirMassFlowRate(Mode);
+            int loops = 0;
             while (true) {
                 if (DXCoil(DXCoilNum).DXCoilType_Num == CoilDX_HeatPumpWaterHeaterPumped ||
                     DXCoil(DXCoilNum).DXCoilType_Num == CoilDX_HeatPumpWaterHeaterWrapped) {
@@ -9042,13 +9045,20 @@ namespace DXCoils {
                     break;
                 } else {
                     // Calculate apparatus dew point conditions using TotCap and CBF
-                    hDelta = TotCap / AirMassFlow;
-                    hADP = InletAirEnthalpy - hDelta / (1.0 - CBF);
-                    tADP = PsyTsatFnHPb(hADP, OutdoorPressure, calcDoe2DXCoil);
-                    //  Eventually inlet air conditions will be used in DX Coil, these lines are commented out and marked with this comment line
-                    //  tADP = PsyTsatFnHPb(hADP,InletAirPressure)
-                    wADP = PsyWFnTdbH(tADP, hADP, calcDoe2DXCoil);
-                    hTinwADP = PsyHFnTdbW(InletAirDryBulbTemp, wADP);
+                    //Only need to do once?
+                    if (loops < 1) {
+                        hDelta = TotCap / AirMassFlow;
+
+                        hADP = InletAirEnthalpy - hDelta / (1.0 - CBF);
+                        tADP = PsyTsatFnHPb(hADP, OutdoorPressure, calcDoe2DXCoil);
+
+                        //  Eventually inlet air conditions will be used in DX Coil, these lines are commented out and marked with this comment line
+                        //  tADP = PsyTsatFnHPb(hADP,InletAirPressure)
+                        wADP = PsyWFnTdbH(tADP, hADP, calcDoe2DXCoil);
+
+                        hTinwADP = PsyHFnTdbW(InletAirDryBulbTemp, wADP);
+                    }
+                    
                     if ((InletAirEnthalpy - hADP) > 1.e-10) {
                         SHR = min((hTinwADP - hADP) / (InletAirEnthalpy - hADP), 1.0);
                     } else {
@@ -9058,6 +9068,7 @@ namespace DXCoils {
                     if (wADP > InletAirHumRatTemp || (Counter >= 1 && Counter < MaxIter)) {
                         if (InletAirHumRatTemp == 0.0) InletAirHumRatTemp = 0.00001;
                         werror = (InletAirHumRatTemp - wADP) / InletAirHumRatTemp;
+                        
                         // Increase InletAirHumRatTemp at constant InletAirTemp to find coil dry-out point. Then use the
                         // capacity at the dry-out point to determine exiting conditions from coil. This is required
                         // since the TotCapTempModFac doesn't work properly with dry-coil conditions.
@@ -9072,6 +9083,7 @@ namespace DXCoils {
                         break;
                     }
                 }
+                loops += 1;
             } // end of DO iteration loop
 
             if (DXCoil(DXCoilNum).PLFFPLR(Mode) > 0) {
@@ -9183,8 +9195,10 @@ namespace DXCoils {
             FullLoadOutAirTemp = PsyTdbFnHW(FullLoadOutAirEnth, FullLoadOutAirHumRat);
 
             // Check for saturation error and modify temperature at constant enthalpy
-            if (FullLoadOutAirTemp < PsyTsatFnHPb(FullLoadOutAirEnth, OutdoorPressure)) {
-                FullLoadOutAirTemp = PsyTsatFnHPb(FullLoadOutAirEnth, OutdoorPressure);
+
+            auto test2 = PsyTsatFnHPb(FullLoadOutAirEnth, OutdoorPressure);
+            if (FullLoadOutAirTemp < test2) {
+                FullLoadOutAirTemp = test2;
                 //  Eventually inlet air conditions will be used in DX Coil, these lines are commented out and marked with this comment line
                 //   IF(FullLoadOutAirTemp .LT. PsyTsatFnHPb(FullLoadOutAirEnth,InletAirPressure)) THEN
                 //    FullLoadOutAirTemp = PsyTsatFnHPb(FullLoadOutAirEnth,InletAirPressure)
@@ -9318,8 +9332,10 @@ namespace DXCoils {
             }
 
             // Check for saturation error and modify temperature at constant enthalpy
-            if (OutletAirTemp < PsyTsatFnHPb(OutletAirEnthalpy, OutdoorPressure, calcDoe2DXCoil)) {
-                OutletAirTemp = PsyTsatFnHPb(OutletAirEnthalpy, OutdoorPressure);
+            auto test3 = PsyTsatFnHPb(OutletAirEnthalpy, OutdoorPressure, calcDoe2DXCoil);
+            if (OutletAirTemp < test3) {
+                OutletAirTemp = test3;
+
                 //  Eventually inlet air conditions will be used in DX Coil, these lines are commented out and marked with this comment line
                 //   IF(OutletAirTemp .LT. PsyTsatFnHPb(OutletAirEnthalpy,InletAirPressure)) THEN
                 //    OutletAirTemp = PsyTsatFnHPb(OutletAirEnthalpy,InletAirPressure)
@@ -9332,8 +9348,11 @@ namespace DXCoils {
                 OutletAirHumRat = (1.0 - BypassFlowFraction) * OutletAirHumRat + BypassFlowFraction * InletAirHumRat;
                 OutletAirTemp = PsyTdbFnHW(OutletAirEnthalpy, OutletAirHumRat);
                 // Check for saturation error and modify temperature at constant enthalpy
-                if (OutletAirTemp < PsyTsatFnHPb(OutletAirEnthalpy, OutdoorPressure)) {
-                    OutletAirTemp = PsyTsatFnHPb(OutletAirEnthalpy, OutdoorPressure);
+
+                auto test1 = PsyTsatFnHPb(OutletAirEnthalpy, OutdoorPressure);
+                
+                if (OutletAirTemp < test1) { //Redundant call :o
+                    OutletAirTemp = test1;
                     //  Eventually inlet air conditions will be used in DX Coil, these lines are commented out and marked with this comment line
                     //     IF(OutletAirTemp .LT. PsyTsatFnHPb(OutletAirEnthalpy,InletAirPressure)) THEN
                     //       OutletAirTemp = PsyTsatFnHPb(OutletAirEnthalpy,InletAirPressure)
@@ -9532,6 +9551,8 @@ namespace DXCoils {
         if (DXCoil(DXCoilNum).IsSecondaryDXCoilInZone) {
             CalcSecondaryDXCoils(DXCoilNum);
         }
+
+        
     }
 
     void CalcVRFCoolingCoil(int const DXCoilNum,                      // the number of the DX coil to be simulated
