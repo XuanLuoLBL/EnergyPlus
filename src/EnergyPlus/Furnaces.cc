@@ -8524,6 +8524,7 @@ namespace Furnaces {
     )
     {
 
+
         // SUBROUTINE INFORMATION:
         //       AUTHOR         Richard Raustad
         //       DATE WRITTEN   Sept 2001
@@ -8647,8 +8648,9 @@ namespace Furnaces {
                               CoolPartLoadRatio,
                               OnOffAirFlowRatio);
                 }
-                SimDXCoil(
+                 SimDXCoil(
                     BlankString, CompOp, FirstHVACIteration, Furnace(FurnaceNum).HeatingCoilIndex, FanOpMode, HeatPartLoadRatio, OnOffAirFlowRatio);
+                
                 SimulateFanComponents(BlankString, FirstHVACIteration, Furnace(FurnaceNum).FanIndex, FanSpeedRatio);
             }
             //   Simulate cooling and heating coils
@@ -8683,6 +8685,7 @@ namespace Furnaces {
             // Simulate the parameter estimate water-to-air heat pump
         } else if (Furnace(FurnaceNum).FurnaceType_Num == UnitarySys_HeatPump_WaterToAir &&
                    Furnace(FurnaceNum).WatertoAirHPType == WatertoAir_Simple) {
+
             //    Simulate blow-thru fan and non-linear coils twice to update PLF used by the ONOFF Fan
             if (Furnace(FurnaceNum).FanPlace == BlowThru) {
                 SimulateFanComponents(BlankString, FirstHVACIteration, Furnace(FurnaceNum).FanIndex, FanSpeedRatio);
@@ -8759,6 +8762,7 @@ namespace Furnaces {
             // Simulate the detailed water-to-air heat pump
         } else if (Furnace(FurnaceNum).FurnaceType_Num == UnitarySys_HeatPump_WaterToAir &&
                    Furnace(FurnaceNum).WatertoAirHPType == WatertoAir_ParEst) {
+
             //    Simulate the draw-thru fan
             if (Furnace(FurnaceNum).FanPlace == BlowThru) {
                 SimulateFanComponents(BlankString, FirstHVACIteration, Furnace(FurnaceNum).FanIndex, FanSpeedRatio);
@@ -8802,6 +8806,8 @@ namespace Furnaces {
 
         } else { // ELSE it's not a heat pump
             //   Simulate blow-thru fan
+            //TEST DELETION HERE
+            /*
             if (Furnace(FurnaceNum).FanPlace == BlowThru) {
 
                 SimulateFanComponents(BlankString, FirstHVACIteration, Furnace(FurnaceNum).FanIndex, FanSpeedRatio);
@@ -8826,6 +8832,8 @@ namespace Furnaces {
                                                      OnOffAirFlowRatio,
                                                      EconomizerFlag);
                         } else {
+                std::cout << "bt" << "\n";
+
                             SimDXCoil(BlankString,
                                       CompOp,
                                       FirstHVACIteration,
@@ -8834,6 +8842,7 @@ namespace Furnaces {
                                       CoolPartLoadRatio,
                                       OnOffAirFlowRatio,
                                       CoolHeatPLRRat);
+                                      
                         }
                     }
 
@@ -8845,6 +8854,7 @@ namespace Furnaces {
                 } // Simple OnOff fan
 
             } // Blow thru fan
+            
 
             //   Simulate the cooling and heating coils
             if (Furnace(FurnaceNum).FurnaceType_Num != UnitarySys_HeatOnly && Furnace(FurnaceNum).FurnaceType_Num != Furnace_HeatOnly) {
@@ -8865,7 +8875,9 @@ namespace Furnaces {
                                              OnOffAirFlowRatio,
                                              EconomizerFlag);
                 } else {
-                    SimDXCoil(BlankString,
+                std::cout << "6" << "\n";
+
+                    /*SimDXCoil(BlankString,
                               CompOp,
                               FirstHVACIteration,
                               Furnace(FurnaceNum).CoolingCoilIndex,
@@ -8873,8 +8885,10 @@ namespace Furnaces {
                               CoolPartLoadRatio,
                               OnOffAirFlowRatio,
                               CoolHeatPLRRat);
+                              
                 }
             }
+            */
 
             if (Furnace(FurnaceNum).CoolingCoilUpstream) {
                 SuppHeatingCoilFlag = false; // if false simulates heating coil
