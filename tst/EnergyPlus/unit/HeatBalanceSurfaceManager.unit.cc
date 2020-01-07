@@ -2574,5 +2574,67 @@ TEST_F(EnergyPlusFixture, HeatBalanceSurfaceManager_OutsideSurfHeatBalanceWhenRa
 
     EXPECT_NEAR(ExpectedQconvPerArea2, GetQdotConvOutRepPerArea(1), 0.01);
 }
+TEST_F(EnergyPlusFixture, HeatBalanceSurfaceManager_UpdateFinalThermalHistories_OpenMP)
+{
+    DataSurfaces::TotSurfaces = 2;
+    DataGlobals::NumOfZones = 1;
+    DataHeatBalance::TotConstructs = 1;
+    DataHeatBalance::Zone.allocate(DataGlobals::NumOfZones);
+    DataSurfaces::Surface.allocate(DataSurfaces::TotSurfaces);
+    DataSurfaces::SurfaceWindow.allocate(DataSurfaces::TotSurfaces);
+    DataHeatBalance::Construct.allocate(DataHeatBalance::TotConstructs);
+    DataHeatBalance::AnyConstructInternalSourceInInput = true;
+
+    AllocateSurfaceHeatBalArrays(); // allocates a host of variables related to CTF calculations
+
+    DataSurfaces::Surface(1).Class = DataSurfaces::SurfaceClass_Wall;
+    DataSurfaces::Surface(1).HeatTransSurf = true;
+    DataSurfaces::Surface(1).HeatTransferAlgorithm = DataSurfaces::HeatTransferModel_CTF;
+    DataSurfaces::Surface(1).ExtBoundCond = 1;
+    DataSurfaces::Surface(1).Construction = 1;
+
+    DataSurfaces::Surface(2).Class = DataSurfaces::SurfaceClass_Wall;
+    DataSurfaces::Surface(2).HeatTransSurf = true;
+    DataSurfaces::Surface(2).HeatTransferAlgorithm = DataSurfaces::HeatTransferModel_CTF;
+    DataSurfaces::Surface(2).ExtBoundCond = 1;
+    DataSurfaces::Surface(2).Construction = 1;
+
+    DataHeatBalance::Construct(1).NumCTFTerms = 2;
+    DataHeatBalance::Construct(1).SourceSinkPresent = true;
+    DataHeatBalance::Construct(1).NumHistories = 1;
+    DataHeatBalance::Construct(1).CTFTUserOut(0) = 0.5;
+    DataHeatBalance::Construct(1).CTFTUserIn(0) = 0.25;
+    DataHeatBalance::Construct(1).CTFTUserSource(0) = 0.25;
+
+    DataHeatBalSurface::SUMH(1) = 0;
+    DataHeatBalSurface::TH(1, 1, 1) = 20.0;  // Temperature History (In/Out, Hist Term, SurfNum)
+    DataHeatBalSurface::TempSurfIn(1) = 10.0;
+
+    DataHeatBalSurface::SUMH(2) = 0;
+    DataHeatBalSurface::TH(2, 1, 1) = 20.0;
+    DataHeatBalSurface::TempSurfIn(2) = 12.0;
+
+    DataHeatBalFanSys::CTFTuserConstPart(1) = 0.0;
+
+
+    UpdateThermalHistories(); // First check to see if it is calculating the user location temperature properly
+    EXPECT_EQ(12.5, DataHeatBalSurface::TempUserLoc(1));
+    EXPECT_EQ(12.5, DataHeatBalSurface::TuserHist(1, 1));
+    EXPECT_EQ(12.5, DataHeatBalSurface::TuserHist(1, 2)); // Temperature history at the user specified location (SurfNum, Term)
+    EXPECT_EQ(0, DataHeatBalSurface::TuserHist(1, 3));
+
+    EXPECT_EQ(20.0, DataHeatBalSurface::TH(1, 2, 1));
+    EXPECT_EQ(10.0, DataHeatBalSurface::TH(1, 1, 1));
+    EXPECT_EQ(10.0, DataHeatBalSurface::TH(1, 2, 1));
+
+    EXPECT_EQ(13, DataHeatBalSurface::TempUserLoc(2));
+    EXPECT_EQ(0.0, DataHeatBalSurface::TuserHist(2, 3));
+
+    UpdateThermalHistories();
+    EXPECT_EQ(12.5, DataHeatBalSurface::TempUserLoc(1));
+    EXPECT_EQ(12.5, DataHeatBalSurface::TuserHist(1, 3)); // Now check to see that it is shifting the temperature history properly
+    EXPECT_EQ(13, DataHeatBalSurface::TuserHist(2, 3)); // Now check to see that it is shifting the temperature history properly
+
+}
 
 } // namespace EnergyPlus

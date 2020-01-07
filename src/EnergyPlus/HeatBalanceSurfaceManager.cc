@@ -4537,7 +4537,7 @@ namespace HeatBalanceSurfaceManager {
         for (int SurfNum = 1; SurfNum <= TotSurfaces;
              ++SurfNum) { // Loop through all (heat transfer) surfaces...  [ l11 ] = ( 1, 1, SurfNum ), [ l21 ] = ( 2, 1, SurfNum )
             auto const l11(TH.index(1, 1, SurfNum));
-            auto const l21(TH.index(1, 1, SurfNum));
+            auto const l21(TH.index(2, 1, SurfNum));
             auto const &surface(Surface(SurfNum));
 
             if (surface.Class == SurfaceClass_Window || !surface.HeatTransSurf) continue;
@@ -4608,7 +4608,7 @@ namespace HeatBalanceSurfaceManager {
 
 //        l11 = l111;
 //        l21 = l211;
-//#pragma omp parallel for
+#pragma omp parallel for
         for (int SurfNum = 1; SurfNum <= TotSurfaces;
              ++SurfNum) { // Loop through all (heat transfer) surfaces...  [ l11 ] = ( 1, 1, SurfNum ), [ l21 ] = ( 2, 1, SurfNum )
             auto const l11(TH.index(1, 1, SurfNum));
@@ -4635,6 +4635,7 @@ namespace HeatBalanceSurfaceManager {
 
         // SHIFT TEMPERATURE AND FLUX HISTORIES:
         // SHIFT AIR TEMP AND FLUX SHIFT VALUES WHEN AT BOTTOM OF ARRAY SPACE.
+//#pragma omp parallel for
         for (int SurfNum = 1; SurfNum <= TotSurfaces; ++SurfNum) { // Loop through all (heat transfer) surfaces...
             auto const &surface(Surface(SurfNum));
 
