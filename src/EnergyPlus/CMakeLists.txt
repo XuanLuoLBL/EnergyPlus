@@ -716,6 +716,11 @@ else()  # windows
 endif()
 target_link_libraries( energyplus energyplusapi )
 
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(energyplus OpenMP::OpenMP_CXX)
+endif()
+
 set_target_properties(energyplus PROPERTIES VERSION ${ENERGYPLUS_VERSION})
 set_target_properties(energyplusapi PROPERTIES VERSION ${ENERGYPLUS_VERSION})
 
@@ -739,3 +744,4 @@ if(UNIX AND NOT APPLE)
   COMMAND ${CMAKE_COMMAND} -E create_symlink energyplus EnergyPlus
   COMMAND ${CMAKE_COMMAND} -E rename EnergyPlus "${CMAKE_BINARY_DIR}/Products/EnergyPlus")
 endif()
+

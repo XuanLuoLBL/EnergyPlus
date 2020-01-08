@@ -4488,7 +4488,7 @@ namespace HeatBalanceSurfaceManager {
         // SUBROUTINE LOCAL VARIABLE DECLARATIONS:
         int HistTermNum; // DO loop counter for history terms
         int SideNum;     // DO loop counter for surfaces sides (inside, outside)
-        int SurfNum;     // Surface number DO loop counter
+        //int SurfNum;     // Surface number DO loop counter
 
         static Array1D<Real64> QExt1;    // Heat flux at the exterior surface during first time step/series
         static Array1D<Real64> QInt1;    // Heat flux at the interior surface during first time step/series
@@ -4533,9 +4533,10 @@ namespace HeatBalanceSurfaceManager {
         //auto const l211(TH.index(2, 1, 1));
         //auto l11(l111);
        // auto l21(l211);
-#pragma omp parallel for
+#pragma omp parallel for num_threads(2)
         for (int SurfNum = 1; SurfNum <= TotSurfaces;
              ++SurfNum) { // Loop through all (heat transfer) surfaces...  [ l11 ] = ( 1, 1, SurfNum ), [ l21 ] = ( 2, 1, SurfNum )
+            std::cout << "OpenMp Thread Rank: " << omp_get_thread_num() << "\n";
             auto const l11(TH.index(1, 1, SurfNum));
             auto const l21(TH.index(2, 1, SurfNum));
             auto const &surface(Surface(SurfNum));
@@ -4612,7 +4613,7 @@ namespace HeatBalanceSurfaceManager {
         for (int SurfNum = 1; SurfNum <= TotSurfaces;
              ++SurfNum) { // Loop through all (heat transfer) surfaces...  [ l11 ] = ( 1, 1, SurfNum ), [ l21 ] = ( 2, 1, SurfNum )
             auto const l11(TH.index(1, 1, SurfNum));
-            auto const l21(TH.index(1, 1, SurfNum));
+            auto const l21(TH.index(2, 1, SurfNum));
             auto const &surface(Surface(SurfNum));
 
             if (surface.Class == SurfaceClass_Window || !surface.HeatTransSurf) continue;
