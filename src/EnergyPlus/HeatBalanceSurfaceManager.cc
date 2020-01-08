@@ -4488,6 +4488,7 @@ namespace HeatBalanceSurfaceManager {
         // SUBROUTINE LOCAL VARIABLE DECLARATIONS:
         int HistTermNum; // DO loop counter for history terms
         int SideNum;     // DO loop counter for surfaces sides (inside, outside)
+        int tid;         // thread number
         //int SurfNum;     // Surface number DO loop counter
 
         static Array1D<Real64> QExt1;    // Heat flux at the exterior surface during first time step/series
@@ -4533,17 +4534,20 @@ namespace HeatBalanceSurfaceManager {
         //auto const l211(TH.index(2, 1, 1));
         //auto l11(l111);
        // auto l21(l211);
-#pragma omp parallel for num_threads(2)
+#pragma omp parallel for num_threads(6) private(tid)
         for (int SurfNum = 1; SurfNum <= TotSurfaces;
              ++SurfNum) { // Loop through all (heat transfer) surfaces...  [ l11 ] = ( 1, 1, SurfNum ), [ l21 ] = ( 2, 1, SurfNum )
-            std::cout << "OpenMp Thread Rank: " << omp_get_thread_num() << "\n";
+            tid = omp_get_thread_num();
+            printf("Thread number = %d\n", tid);
             auto const l11(TH.index(1, 1, SurfNum));
             auto const l21(TH.index(2, 1, SurfNum));
             auto const &surface(Surface(SurfNum));
 
             if (surface.Class == SurfaceClass_Window || !surface.HeatTransSurf) continue;
 
-            if ((surface.HeatTransferAlgorithm != HeatTransferModel_CTF) && (surface.HeatTransferAlgorithm != HeatTransferModel_EMPD)) continue;
+            if ((surface.HeatTransferAlgorithm != HeatTransferModel_CTF) &&
+                (surface.HeatTransferAlgorithm != HeatTransferModel_EMPD))
+                continue;
 
             int const ConstrNum(surface.Construction);
             auto const &construct(Construct(ConstrNum));
@@ -4558,9 +4562,11 @@ namespace HeatBalanceSurfaceManager {
             // In both equations, flux is positive from outside to inside.  The V and W terms are for radiant systems only.
 
             // Set current inside flux:
-            Real64 const QH_12 = QH[l21] = TH[l11] * construct.CTFCross(0) - TempSurfIn(SurfNum) * construct.CTFInside(0) +
+            Real64 const QH_12 = QH[l21] = TH[l11] * construct.CTFCross(0) -
+                                           TempSurfIn(SurfNum) * construct.CTFInside(0) +
                                            CTFConstInPart(SurfNum); // Heat source/sink term for radiant systems
-            if (surface.Class == SurfaceClass_Floor || surface.Class == SurfaceClass_Wall || surface.Class == SurfaceClass_IntMass ||
+            if (surface.Class == SurfaceClass_Floor || surface.Class == SurfaceClass_Wall ||
+                surface.Class == SurfaceClass_IntMass ||
                 surface.Class == SurfaceClass_Roof || surface.Class == SurfaceClass_Door) {
                 if (construct.SourceSinkPresent) {
                     Real64 const QH_12s = QH[l21] = QH_12 + QsrcHist(SurfNum, 1) * construct.CTFSourceIn(0);
@@ -4584,10 +4590,12 @@ namespace HeatBalanceSurfaceManager {
 
             // Update the temperature at the source/sink location (if one is present)
             if (construct.SourceSinkPresent) {
-                TempSource(SurfNum) = TsrcHist(SurfNum, 1) = TH[l11] * construct.CTFTSourceOut(0) + TempSurfIn(SurfNum) * construct.CTFTSourceIn(0) +
-                                                             QsrcHist(SurfNum, 1) * construct.CTFTSourceQ(0) + CTFTsrcConstPart(SurfNum);
-                TempUserLoc(SurfNum) = TuserHist(SurfNum, 1) = TH[l11] * construct.CTFTUserOut(0) + TempSurfIn(SurfNum) * construct.CTFTUserIn(0) +
-                                                               QsrcHist(SurfNum, 1) * construct.CTFTUserSource(0) + CTFTuserConstPart(SurfNum);
+                TempSource(SurfNum) = TsrcHist(SurfNum, 1) =
+                        TH[l11] * construct.CTFTSourceOut(0) + TempSurfIn(SurfNum) * construct.CTFTSourceIn(0) +
+                        QsrcHist(SurfNum, 1) * construct.CTFTSourceQ(0) + CTFTsrcConstPart(SurfNum);
+                TempUserLoc(SurfNum) = TuserHist(SurfNum, 1) =
+                        TH[l11] * construct.CTFTUserOut(0) + TempSurfIn(SurfNum) * construct.CTFTUserIn(0) +
+                        QsrcHist(SurfNum, 1) * construct.CTFTUserSource(0) + CTFTuserConstPart(SurfNum);
             }
 
             if (surface.ExtBoundCond > 0) continue; // Don't need to evaluate outside for partitions
@@ -4595,17 +4603,21 @@ namespace HeatBalanceSurfaceManager {
             // Set current outside flux:
             if (construct.SourceSinkPresent) {
                 QH[l11] = TH[l11] * construct.CTFOutside(0) - TempSurfIn(SurfNum) * construct.CTFCross(0) +
-                          QsrcHist(SurfNum, 1) * construct.CTFSourceOut(0) + CTFConstOutPart(SurfNum); // Heat source/sink term for radiant systems
+                          QsrcHist(SurfNum, 1) * construct.CTFSourceOut(0) +
+                          CTFConstOutPart(SurfNum); // Heat source/sink term for radiant systems
             } else {
-                QH[l11] = TH[l11] * construct.CTFOutside(0) - TempSurfIn(SurfNum) * construct.CTFCross(0) + CTFConstOutPart(SurfNum);
+                QH[l11] = TH[l11] * construct.CTFOutside(0) - TempSurfIn(SurfNum) * construct.CTFCross(0) +
+                          CTFConstOutPart(SurfNum);
             }
-            if (surface.Class == SurfaceClass_Floor || surface.Class == SurfaceClass_Wall || surface.Class == SurfaceClass_IntMass ||
+            if (surface.Class == SurfaceClass_Floor || surface.Class == SurfaceClass_Wall ||
+                surface.Class == SurfaceClass_IntMass ||
                 surface.Class == SurfaceClass_Roof || surface.Class == SurfaceClass_Door) {
                 OpaqSurfOutsideFaceConductionFlux(SurfNum) = -QH[l11]; // switch sign for balance at outside face
                 OpaqSurfOutsideFaceConduction(SurfNum) = surface.Area * OpaqSurfOutsideFaceConductionFlux(SurfNum);
             }
 
         } // ...end of loop over all (heat transfer) surfaces...
+
 
 //        l11 = l111;
 //        l21 = l211;
@@ -4636,7 +4648,7 @@ namespace HeatBalanceSurfaceManager {
 
         // SHIFT TEMPERATURE AND FLUX HISTORIES:
         // SHIFT AIR TEMP AND FLUX SHIFT VALUES WHEN AT BOTTOM OF ARRAY SPACE.
-//#pragma omp parallel for
+#pragma omp parallel for
         for (int SurfNum = 1; SurfNum <= TotSurfaces; ++SurfNum) { // Loop through all (heat transfer) surfaces...
             auto const &surface(Surface(SurfNum));
 
