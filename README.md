@@ -2,10 +2,13 @@ Hackathon
 ===================================================================================================
 ## Branches
 Dev branch: develop
+
 Test branch: update-thermal
 
 ## Building EnergyPlus
 Detailed description of compiling EnergyPlus on multiple platforms is available on the [wiki](https://github.com/NREL/EnergyPlus/wiki/BuildingEnergyPlus).
+
+For linux build: https://github.com/NREL/EnergyPlus/wiki/BuildingEnergyPlus#linux
 
 CMAKE options:
 - CMAKE_BUILD_TYPE = Debug/Release
@@ -13,11 +16,15 @@ CMAKE options:
 
 ## Running EnergyPlus
 Assuming the build folder is "root/build", in "root/build/Product" folder:
+
 ``` ./energyplus -h```
 
 Run sample test files:
+
 ``` ./energyplus -p "1Zone_" -w  ../weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw ../testfiles/1ZoneUncontrolled.idf >output_1zone.txt```
+
 ``` OMP_NUM_THREAD=6 ./energyplus -p "5Zone_"  ../weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw ../testfiles/5ZoneAirCooled.idf >output_5zone.txt```
+
 ``` OMP_NUM_THREAD=6 ./energyplus -p "SmallOffice_"  ../weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw ../testfiles/1ZoneUncontrolled.idf >output_small_office.txt```
 
 ## Unit test
