@@ -2611,7 +2611,7 @@ TEST_F(EnergyPlusFixture, HeatBalanceSurfaceManager_UpdateFinalThermalHistories_
     DataHeatBalSurface::TempSurfIn(1) = 10.0;
 
     DataHeatBalSurface::SUMH(2) = 0;
-    DataHeatBalSurface::TH(2, 1, 1) = 20.0;
+    DataHeatBalSurface::TH(1, 1, 2) = 20.0;
     DataHeatBalSurface::TempSurfIn(2) = 12.0;
 
     DataHeatBalFanSys::CTFTuserConstPart(1) = 0.0;
@@ -2624,8 +2624,8 @@ TEST_F(EnergyPlusFixture, HeatBalanceSurfaceManager_UpdateFinalThermalHistories_
     EXPECT_EQ(0, DataHeatBalSurface::TuserHist(1, 3));
 
     EXPECT_EQ(20.0, DataHeatBalSurface::TH(1, 2, 1));
-    EXPECT_EQ(10.0, DataHeatBalSurface::TH(1, 1, 1));
-    EXPECT_EQ(10.0, DataHeatBalSurface::TH(1, 2, 1));
+    EXPECT_EQ(0, DataHeatBalSurface::TH(2, 1, 1));
+    EXPECT_EQ(10.0, DataHeatBalSurface::TH(2, 2, 1)); // Temperature history shifted properly at inside surface
 
     EXPECT_EQ(13, DataHeatBalSurface::TempUserLoc(2));
     EXPECT_EQ(0.0, DataHeatBalSurface::TuserHist(2, 3));
@@ -2633,7 +2633,7 @@ TEST_F(EnergyPlusFixture, HeatBalanceSurfaceManager_UpdateFinalThermalHistories_
     UpdateThermalHistories();
     EXPECT_EQ(12.5, DataHeatBalSurface::TempUserLoc(1));
     EXPECT_EQ(12.5, DataHeatBalSurface::TuserHist(1, 3)); // Now check to see that it is shifting the temperature history properly
-    EXPECT_EQ(13, DataHeatBalSurface::TuserHist(2, 3)); // Now check to see that it is shifting the temperature history properly
+    EXPECT_EQ(13, DataHeatBalSurface::TuserHist(2, 3));
 
 }
 

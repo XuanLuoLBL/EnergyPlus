@@ -4486,10 +4486,10 @@ namespace HeatBalanceSurfaceManager {
         // na
 
         // SUBROUTINE LOCAL VARIABLE DECLARATIONS:
-        int HistTermNum; // DO loop counter for history terms
-        int SideNum;     // DO loop counter for surfaces sides (inside, outside)
-        int tid;         // thread number
+        //int HistTermNum; // DO loop counter for history terms
+        //int SideNum;     // DO loop counter for surfaces sides (inside, outside)
         //int SurfNum;     // Surface number DO loop counter
+        int tid;           // thread number
 
         static Array1D<Real64> QExt1;    // Heat flux at the exterior surface during first time step/series
         static Array1D<Real64> QInt1;    // Heat flux at the interior surface during first time step/series
@@ -4534,11 +4534,13 @@ namespace HeatBalanceSurfaceManager {
         //auto const l211(TH.index(2, 1, 1));
         //auto l11(l111);
        // auto l21(l211);
-#pragma omp parallel for num_threads(6) private(tid)
+
+        omp_set_num_threads(1);
+#pragma omp parallel for private(tid)
         for (int SurfNum = 1; SurfNum <= TotSurfaces;
              ++SurfNum) { // Loop through all (heat transfer) surfaces...  [ l11 ] = ( 1, 1, SurfNum ), [ l21 ] = ( 2, 1, SurfNum )
-            tid = omp_get_thread_num();
-            printf("Thread number = %d\n", tid);
+//            tid = omp_get_thread_num();
+//            printf("First loop, Thread number = %d\n", tid);
             auto const l11(TH.index(1, 1, SurfNum));
             auto const l21(TH.index(2, 1, SurfNum));
             auto const &surface(Surface(SurfNum));
@@ -4621,13 +4623,15 @@ namespace HeatBalanceSurfaceManager {
 
 //        l11 = l111;
 //        l21 = l211;
-#pragma omp parallel for
+        omp_set_num_threads(1);
+#pragma omp parallel for private(tid)
         for (int SurfNum = 1; SurfNum <= TotSurfaces;
              ++SurfNum) { // Loop through all (heat transfer) surfaces...  [ l11 ] = ( 1, 1, SurfNum ), [ l21 ] = ( 2, 1, SurfNum )
             auto const l11(TH.index(1, 1, SurfNum));
             auto const l21(TH.index(2, 1, SurfNum));
             auto const &surface(Surface(SurfNum));
-
+//            tid = omp_get_thread_num();
+//            printf("Second loop, Thread number = %d\n", tid);
             if (surface.Class == SurfaceClass_Window || !surface.HeatTransSurf) continue;
             if ((surface.HeatTransferAlgorithm != HeatTransferModel_CTF) && (surface.HeatTransferAlgorithm != HeatTransferModel_EMPD) &&
                 (surface.HeatTransferAlgorithm != HeatTransferModel_TDD))
@@ -4648,6 +4652,7 @@ namespace HeatBalanceSurfaceManager {
 
         // SHIFT TEMPERATURE AND FLUX HISTORIES:
         // SHIFT AIR TEMP AND FLUX SHIFT VALUES WHEN AT BOTTOM OF ARRAY SPACE.
+        omp_set_num_threads(1);
 #pragma omp parallel for
         for (int SurfNum = 1; SurfNum <= TotSurfaces; ++SurfNum) { // Loop through all (heat transfer) surfaces...
             auto const &surface(Surface(SurfNum));
@@ -4669,11 +4674,11 @@ namespace HeatBalanceSurfaceManager {
 
                 if (construct.NumCTFTerms > 1) {
                     int const numCTFTerms(construct.NumCTFTerms);
-                    for (SideNum = 1; SideNum <= 2; ++SideNum) { // Tuned Index order switched for cache friendliness
+                    for (int SideNum = 1; SideNum <= 2; ++SideNum) { // Tuned Index order switched for cache friendliness
                         auto l(THM.index(SideNum, numCTFTerms, SurfNum));
                         auto const li(THM.size3());
                         auto l1(l + li);
-                        for (HistTermNum = numCTFTerms + 1; HistTermNum >= 3; --HistTermNum, l1 = l, l -= li) { // Tuned Linear indexing
+                        for (int HistTermNum = numCTFTerms + 1; HistTermNum >= 3; --HistTermNum, l1 = l, l -= li) { // Tuned Linear indexing
                             // TH( SideNum, HistTermNum, SurfNum ) = THM( SideNum, HistTermNum, SurfNum ) = THM( SideNum, HistTermNum - 1, SurfNum );
                             // QH( SideNum, HistTermNum, SurfNum ) = QHM( SideNum, HistTermNum, SurfNum ) = QHM( SideNum, HistTermNum - 1, SurfNum );
                             TH[l1] = THM[l1] = THM[l];
@@ -4683,7 +4688,7 @@ namespace HeatBalanceSurfaceManager {
                     if (construct.SourceSinkPresent) {
                         auto m(TsrcHistM.index(SurfNum, numCTFTerms));
                         auto m1(m + 1);
-                        for (HistTermNum = numCTFTerms + 1; HistTermNum >= 3; --HistTermNum, --m, --m1) { // Tuned Linear indexing
+                        for (int HistTermNum = numCTFTerms + 1; HistTermNum >= 3; --HistTermNum, --m, --m1) { // Tuned Linear indexing
                             // TsrcHist( SurfNum, HistTerm ) = TsrcHistM( SurfNum, HHistTerm ) = TsrcHistM( SurfNum, HistTermNum - 1 );
                             // QsrcHist( SurfNum, HistTerm ) = QsrcHistM( SurfNum, HHistTerm ) = QsrcHistM( SurfNum, HistTermNum - 1 );
                             TsrcHist[m1] = TsrcHistM[m1] = TsrcHistM[m];
@@ -4734,11 +4739,11 @@ namespace HeatBalanceSurfaceManager {
                 Real64 const sum_steps(SumTime(SurfNum) / construct.CTFTimeStep);
                 if (construct.NumCTFTerms > 1) {
                     int const numCTFTerms(construct.NumCTFTerms);
-                    for (SideNum = 1; SideNum <= 2; ++SideNum) { // Tuned Index order switched for cache friendliness
+                    for (int SideNum = 1; SideNum <= 2; ++SideNum) { // Tuned Index order switched for cache friendliness
                         auto l(THM.index(SideNum, numCTFTerms, SurfNum));
                         auto const s3(THM.size3());
                         auto l1(l + s3);
-                        for (HistTermNum = numCTFTerms + 1; HistTermNum >= 3; --HistTermNum, l1 = l, l -= s3) { // Tuned Linear indexing
+                        for (int HistTermNum = numCTFTerms + 1; HistTermNum >= 3; --HistTermNum, l1 = l, l -= s3) { // Tuned Linear indexing
                             // Real64 const THM_l1( THM( SideNum, HistTermNum, SurfNum ) );
                             // TH( SideNum, HistTermNum, SurfNum ) = THM_l1 - ( THM_l1 - THM( SideNum, HistTermNum - 1, SurfNum ) ) * sum_steps;
                             // Real64 const QHM_l1( QHM( SideNum, HistTermNum, SurfNum ) );
@@ -4752,7 +4757,7 @@ namespace HeatBalanceSurfaceManager {
                     if (construct.SourceSinkPresent) {
                         auto m(TsrcHistM.index(SurfNum, numCTFTerms));
                         auto m1(m + 1);
-                        for (HistTermNum = numCTFTerms + 1; HistTermNum >= 3; --HistTermNum, --m, --m1) { // Tuned Linear indexing [ l ] == ()
+                        for (int HistTermNum = numCTFTerms + 1; HistTermNum >= 3; --HistTermNum, --m, --m1) { // Tuned Linear indexing [ l ] == ()
                             // Real64 const TsrcHistM_elem( TsrcHistM( SurfNum, HistTermNum ) );
                             // TsrcHist( SurfNum, HistTermNum ) = TsrcHistM_elem - ( TsrcHistM_elem - TsrcHistM( SurfNum, HistTermNum - 1 ) ) *
                             // sum_steps;  Real64 const QsrcHistM_elem( QsrcHistM( SurfNum, HistTermNum ) );  QsrcHist( SurfNum, HistTermNum ) =

@@ -16,15 +16,15 @@ Assuming the build folder is "root/build", in "root/build/Product" folder:
 ``` ./energyplus -h```
 
 Run sample test files:
-``` ./energyplus -p "1Zone_" -w  ../weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw ../testfiles/1ZoneUncontrolled.idf >output_1zone.txt```
-``` OMP_NUM_THREAD=6 ./energyplus -p "5Zone_"  ../weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw ../testfiles/5ZoneAirCooled.idf >output_5zone.txt```
-``` OMP_NUM_THREAD=6 ./energyplus -p "SmallOffice_"  ../weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw ../testfiles/1ZoneUncontrolled.idf >output_small_office.txt```
+``` ./energyplus -p "1Zone_" -w  ../../weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw ../../testfiles/1ZoneUncontrolled.idf >output_1zone.txt```
+``` ./energyplus -p "5Zone_" -w ../../weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw ../../testfiles/5ZoneAirCooled.idf >output_5zone.txt```
+``` ./energyplus -a -p "SmallOffice_" -w ../../weather/USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw ../../testfiles/RefBldgSmallOfficeNew2004_Chicago.idf >output_small_office.txt```
 
 ## Unit test
 
 CMAKE flag: BUILD_TESTING=ON
 
-``` ./energyplus_test --gtest_filter="EnergyPlusFixture.HeatBalanceSurfaceManager_UpdateFinalThermalHistories_OpenMP```
+``` ./energyplus_tests --gtest_filter="EnergyPlusFixture.HeatBalanceSurfaceManager_UpdateFinalThermalHistories_OpenMP"```
 
 
 EnergyPlus [![](https://img.shields.io/github/downloads/nrel/energyplus/total.svg?colorB=FF7300)]()
