@@ -5190,7 +5190,7 @@ namespace HeatBalanceSurfaceManager {
             CalcInteriorRadExchange(TH(2, 1, _), 0, NetLWRadToSurf, _, Outside);
         }
 
-        int thread_number = 1;
+        int thread_number = 8;
 
         omp_set_num_threads(thread_number);
 //#pragma omp parallel for default (none) shared(MovInsulErrorFlag)
