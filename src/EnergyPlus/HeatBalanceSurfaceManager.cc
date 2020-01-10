@@ -49,6 +49,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <omp.h>
 
 // ObjexxFCL Headers
 #include <ObjexxFCL/Array.functions.hh>
@@ -5141,25 +5142,27 @@ namespace HeatBalanceSurfaceManager {
         // na
 
         // SUBROUTINE LOCAL VARIABLE DECLARATIONS:
-        Real64 AbsThermSurf;     // Thermal absoptance of the exterior surface
-        int ConstrNum;           // Construction index for the current surface
-        Real64 HGround;          // "Convection" coefficient from ground to surface
-        Real64 HMovInsul;        // "Convection" coefficient of movable insulation
-        Real64 HSky;             // "Convection" coefficient from sky to surface
-        Real64 HAir;             // "Convection" coefficient from air to surface (radiation)
-        Real64 ConstantTempCoef; // Temperature Coefficient as input or modified using sine wave  COP mod
-        int RoughSurf;           // Roughness index of the exterior surface
-        int SurfNum;             // Surface number DO loop counter
-        int SrdSurfsNum;         // Surrounding surfaces list number
-        int SrdSurfNum;          // Surrounding surface number DO loop counter
-        Real64 SrdSurfTempAbs;   // Absolute temperature of a surrounding surface
-        Real64 SrdSurfViewFac;   // View factor of a surrounding surface
-        Real64 TempExt;          // Exterior temperature boundary condition
-        int ZoneNum;             // Zone number the current surface is attached to
-        int OPtr;
-        Real64 RhoVaporSat;     // Local temporary saturated vapor density for checking
+//        Real64 AbsThermSurf;     // Thermal absoptance of the exterior surface
+//        int ConstrNum;           // Construction index for the current surface
+//        Real64 HGround;          // "Convection" coefficient from ground to surface
+//        Real64 HMovInsul;        // "Convection" coefficient of movable insulation
+//        Real64 HSky;             // "Convection" coefficient from sky to surface
+//        Real64 HAir;             // "Convection" coefficient from air to surface (radiation)
+//        Real64 ConstantTempCoef; // Temperature Coefficient as input or modified using sine wave  COP mod
+//        int RoughSurf;           // Roughness index of the exterior surface
+//        int SurfNum;             // Surface number DO loop counter
+//        int SrdSurfsNum;         // Surrounding surfaces list number
+//        int SrdSurfNum;          // Surrounding surface number DO loop counter
+//        Real64 SrdSurfTempAbs;   // Absolute temperature of a surrounding surface
+//        Real64 SrdSurfViewFac;   // View factor of a surrounding surface
+//        Real64 TempExt;          // Exterior temperature boundary condition
+//        int ZoneNum;             // Zone number the current surface is attached to
+//        int OPtr;
+//        Real64 RhoVaporSat;     // Local temporary saturated vapor density for checking
         bool MovInsulErrorFlag; // Movable Insulation error flag
-        Real64 TSurf;           // Absolute temperature of the outside surface of an exterior surface
+//        Real64 TSurf;           // Absolute temperature of the outside surface of an exterior surface
+
+        int tid;
 
         // FUNCTION DEFINITIONS:
         // na
@@ -5168,7 +5171,7 @@ namespace HeatBalanceSurfaceManager {
         MovInsulErrorFlag = false;
 
         if (AnyConstructInternalSourceInInput) {
-            for (SurfNum = 1; SurfNum <= TotSurfaces; ++SurfNum) {
+            for (int SurfNum = 1; SurfNum <= TotSurfaces; ++SurfNum) {
                 // Need to transfer any source/sink for a surface to the local array.  Note that
                 // the local array is flux (W/m2) while the QRadSysSource is heat transfer (W).
                 // This must be done at this location so that this is always updated correctly.
@@ -5187,9 +5190,15 @@ namespace HeatBalanceSurfaceManager {
             CalcInteriorRadExchange(TH(2, 1, _), 0, NetLWRadToSurf, _, Outside);
         }
 
-        for (SurfNum = 1; SurfNum <= TotSurfaces; ++SurfNum) { // Loop through all surfaces...
+        int thread_number = 1;
 
-            ZoneNum = Surface(SurfNum).Zone;
+        omp_set_num_threads(thread_number);
+//#pragma omp parallel for default (none) shared(MovInsulErrorFlag)
+#pragma omp parallel for shared(MovInsulErrorFlag)
+        for (int SurfNum = 1; SurfNum <= TotSurfaces; ++SurfNum) { // Loop through all surfaces...
+//            tid = omp_get_thread_num();
+//            printf("First loop, Thread number = %d\n", tid);
+            int ZoneNum = Surface(SurfNum).Zone;
 
             if (present(ZoneToResimulate)) {
                 if ((ZoneNum != ZoneToResimulate) && (AdjacentZoneToSurface(SurfNum) != ZoneToResimulate)) {
@@ -5205,11 +5214,11 @@ namespace HeatBalanceSurfaceManager {
             // Window layer temperatures are calculated in CalcHeatBalanceInsideSurf
 
             // Initializations for this surface
-            ConstrNum = Surface(SurfNum).Construction;
-            HMovInsul = 0.0;
-            HSky = 0.0;
-            HGround = 0.0;
-            HAir = 0.0;
+            int ConstrNum = Surface(SurfNum).Construction;
+            double HMovInsul = 0.0;
+            double HSky = 0.0;
+            double HGround = 0.0;
+            double HAir = 0.0;
             HcExtSurf(SurfNum) = 0.0;
             HAirExtSurf(SurfNum) = 0.0;
             HSkyExtSurf(SurfNum) = 0.0;
@@ -5313,7 +5322,7 @@ namespace HeatBalanceSurfaceManager {
                     // Use Other Side Coefficients to determine the surface film coefficient and
                     // the exterior boundary condition temperature
 
-                    OPtr = Surface(SurfNum).OSCPtr;
+                    int OPtr = Surface(SurfNum).OSCPtr;
                     // Set surface temp from previous timestep
                     if (BeginTimeStepFlag) {
                         OSC(OPtr).TOutsideSurfPast = TH(1, 1, SurfNum);
@@ -5322,6 +5331,8 @@ namespace HeatBalanceSurfaceManager {
                     if (OSC(OPtr).ConstTempScheduleIndex != 0) { // Determine outside temperature from schedule
                         OSC(OPtr).ConstTemp = GetCurrentScheduleValue(OSC(OPtr).ConstTempScheduleIndex);
                     }
+
+                    double ConstantTempCoef = 0.0;
 
                     //  Allow for modification of TemperatureCoefficient with unitary sine wave.
                     if (OSC(OPtr).SinusoidalConstTempCoef) { // Sine wave C4
@@ -5368,7 +5379,7 @@ namespace HeatBalanceSurfaceManager {
 
                     // First, set up the outside convection coefficient and the exterior temperature
                     // boundary condition for the surface
-                    OPtr = Surface(SurfNum).OSCPtr;
+                    int OPtr = Surface(SurfNum).OSCPtr;
                     // Set surface temp from previous timestep
                     if (BeginTimeStepFlag) {
                         OSC(OPtr).TOutsideSurfPast = TH(1, 1, SurfNum);
@@ -5389,7 +5400,7 @@ namespace HeatBalanceSurfaceManager {
                     if (OSC(OPtr).MinLimitPresent) OSC(OPtr).OSCTempCalc = max(OSC(OPtr).MinTempLimit, OSC(OPtr).OSCTempCalc);
                     if (OSC(OPtr).MaxLimitPresent) OSC(OPtr).OSCTempCalc = min(OSC(OPtr).MaxTempLimit, OSC(OPtr).OSCTempCalc);
 
-                    TempExt = OSC(OPtr).OSCTempCalc;
+                    double TempExt = OSC(OPtr).OSCTempCalc;
 
                     // Set the only radiant system heat balance coefficient that is non-zero for this case
                     if (Construct(ConstrNum).SourceSinkPresent) RadSysToHBConstCoef(SurfNum) = TH(1, 1, SurfNum);
@@ -5427,7 +5438,7 @@ namespace HeatBalanceSurfaceManager {
 
                     // First, set up the outside convection coefficient and the exterior temperature
                     // boundary condition for the surface
-                    OPtr = Surface(SurfNum).OSCMPtr;
+                    int OPtr = Surface(SurfNum).OSCMPtr;
                     // EMS overrides
                     if (OSCM(OPtr).EMSOverrideOnTConv) OSCM(OPtr).TConv = OSCM(OPtr).EMSOverrideTConvValue;
                     if (OSCM(OPtr).EMSOverrideOnHConv) OSCM(OPtr).HConv = OSCM(OPtr).EMSOverrideHConvValue;
@@ -5435,7 +5446,7 @@ namespace HeatBalanceSurfaceManager {
                     if (OSCM(OPtr).EMSOverrideOnHrad) OSCM(OPtr).HRad = OSCM(OPtr).EMSOverrideHradValue;
                     HcExtSurf(SurfNum) = OSCM(OPtr).HConv;
 
-                    TempExt = OSCM(OPtr).TConv;
+                    double TempExt = OSCM(OPtr).TConv;
 
                     // Set the only radiant system heat balance coefficient that is non-zero for this case
                     if (Construct(ConstrNum).SourceSinkPresent) RadSysToHBConstCoef(SurfNum) = TH(1, 1, SurfNum);
@@ -5481,14 +5492,16 @@ namespace HeatBalanceSurfaceManager {
                     // checking the EcoRoof presented in the external environment
                     // recompute each load by calling ecoroof
 
+                    double TempExt = 0.0;
+
                     if (Surface(SurfNum).ExtEcoRoof) {
                         CalcEcoRoof(SurfNum, ZoneNum, ConstrNum, TempExt);
                         continue;
                     }
 
                     if (SurfaceWindow(SurfNum).StormWinFlag == 1) ConstrNum = Surface(SurfNum).StormWinConstruction;
-                    RoughSurf = Material(Construct(ConstrNum).LayerPoint(1)).Roughness;
-                    AbsThermSurf = Material(Construct(ConstrNum).LayerPoint(1)).AbsorpThermal;
+                    int RoughSurf = Material(Construct(ConstrNum).LayerPoint(1)).Roughness;
+                    double AbsThermSurf = Material(Construct(ConstrNum).LayerPoint(1)).AbsorpThermal;
 
                     // Check for outside movable insulation
                     if (Surface(SurfNum).MaterialMovInsulExt > 0) {
@@ -5519,7 +5532,7 @@ namespace HeatBalanceSurfaceManager {
                                 HcExtSurf(SurfNum) = SetExtConvectionCoeff(SurfNum);
                             }
 
-                            TempExt = Surface(SurfNum).OutWetBulbTemp;
+                            double TempExt = Surface(SurfNum).OutWetBulbTemp;
 
                             // start HAMT
                             if (Surface(SurfNum).HeatTransferAlgorithm == HeatTransferModel_HAMT) {
@@ -5559,7 +5572,7 @@ namespace HeatBalanceSurfaceManager {
 
                         } else { // Surface is dry, use the normal correlation
 
-                            TempExt = Surface(SurfNum).OutDryBulbTemp;
+                            double TempExt = Surface(SurfNum).OutDryBulbTemp;
 
                             if (Surface(SurfNum).HeatTransferAlgorithm == HeatTransferModel_CondFD ||
                                 Surface(SurfNum).HeatTransferAlgorithm == HeatTransferModel_HAMT) {
@@ -5575,7 +5588,7 @@ namespace HeatBalanceSurfaceManager {
                                       RhoVaporAirOut(SurfNum)) *
                                      PsyCpAirFnWTdb(OutHumRat, TempOutsideAirFD(SurfNum)));
                                 //  check for saturation conditions of air
-                                RhoVaporSat = PsyRhovFnTdbRh(TempOutsideAirFD(SurfNum), 1.0, HBSurfManDrySurfCondFD);
+                                double RhoVaporSat = PsyRhovFnTdbRh(TempOutsideAirFD(SurfNum), 1.0, HBSurfManDrySurfCondFD);
                                 if (RhoVaporAirOut(SurfNum) > RhoVaporSat) RhoVaporAirOut(SurfNum) = RhoVaporSat;
                                 HSkyFD(SurfNum) = HSkyExtSurf(SurfNum);
                                 HGrndFD(SurfNum) = HGrdExtSurf(SurfNum);
@@ -5596,7 +5609,7 @@ namespace HeatBalanceSurfaceManager {
                                                     HGrdExtSurf(SurfNum),
                                                     HAirExtSurf(SurfNum));
 
-                        TempExt = Surface(SurfNum).OutDryBulbTemp;
+                        double TempExt = Surface(SurfNum).OutDryBulbTemp;
 
                         if (Surface(SurfNum).HeatTransferAlgorithm == HeatTransferModel_CondFD ||
                             Surface(SurfNum).HeatTransferAlgorithm == HeatTransferModel_HAMT) {
@@ -5619,11 +5632,11 @@ namespace HeatBalanceSurfaceManager {
                     // Calculate LWR from surrounding surfaces if defined for an exterior surface
                     QRadLWOutSrdSurfs(SurfNum) = 0;
                     if (Surface(SurfNum).HasSurroundingSurfProperties) {
-                        SrdSurfsNum = Surface(SurfNum).SurroundingSurfacesNum;
-                        TSurf = TH(1, 1, SurfNum) + KelvinConv;
-                        for (SrdSurfNum = 1; SrdSurfNum <= SurroundingSurfsProperty(SrdSurfsNum).TotSurroundingSurface; SrdSurfNum++) {
-                            SrdSurfViewFac = SurroundingSurfsProperty(SrdSurfsNum).SurroundingSurfs(SrdSurfNum).ViewFactor;
-                            SrdSurfTempAbs =
+                        int SrdSurfsNum = Surface(SurfNum).SurroundingSurfacesNum;
+                        double TSurf = TH(1, 1, SurfNum) + KelvinConv;
+                        for (int SrdSurfNum = 1; SrdSurfNum <= SurroundingSurfsProperty(SrdSurfsNum).TotSurroundingSurface; SrdSurfNum++) {
+                            double SrdSurfViewFac = SurroundingSurfsProperty(SrdSurfsNum).SurroundingSurfs(SrdSurfNum).ViewFactor;
+                            double SrdSurfTempAbs =
                                 GetCurrentScheduleValue(SurroundingSurfsProperty(SrdSurfsNum).SurroundingSurfs(SrdSurfNum).TempSchNum) + KelvinConv;
                             QRadLWOutSrdSurfs(SurfNum) += StefanBoltzmann * AbsThermSurf * SrdSurfViewFac * (pow_4(SrdSurfTempAbs) - pow_4(TSurf));
                         }
@@ -5637,8 +5650,8 @@ namespace HeatBalanceSurfaceManager {
                     }
 
                 } else if (SELECT_CASE_var == KivaFoundation) {
-                    RoughSurf = Material(Construct(ConstrNum).LayerPoint(1)).Roughness;
-                    AbsThermSurf = Material(Construct(ConstrNum).LayerPoint(1)).AbsorpThermal;
+                    double RoughSurf = Material(Construct(ConstrNum).LayerPoint(1)).Roughness;
+                    double AbsThermSurf = Material(Construct(ConstrNum).LayerPoint(1)).AbsorpThermal;
 
                     // Set Kiva exterior convection algorithms
                     InitExteriorConvectionCoeff(SurfNum,
