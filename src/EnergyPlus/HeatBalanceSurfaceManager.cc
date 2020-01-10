@@ -50,6 +50,7 @@
 #include <cassert>
 #include <cmath>
 #include <omp.h>
+#include <chrono>
 // ObjexxFCL Headers
 #include <ObjexxFCL/Array.functions.hh>
 #include <ObjexxFCL/Array1D.hh>
@@ -228,6 +229,7 @@ namespace HeatBalanceSurfaceManager {
         using HeatBalFiniteDiffManager::SurfaceFD;
         using OutputReportTabular::GatherComponentLoadsSurface; // for writing tabular compoonent loads output reports
         using ThermalComfort::ManageThermalComfort;
+        using namespace std::chrono;
 
         int SurfNum;
         int ConstrNum;
@@ -254,7 +256,12 @@ namespace HeatBalanceSurfaceManager {
 
         // Before we leave the Surface Manager the thermal histories need to be updated
         if (DataHeatBalance::AnyCTF || DataHeatBalance::AnyEMPD) {
+            high_resolution_clock::time_point t1 = high_resolution_clock::now();
             UpdateThermalHistories(); // Update the thermal histories
+            high_resolution_clock::time_point t2 = high_resolution_clock::now();
+            duration<double> time_span = duration_cast<duration<double>>(t2 - t1);
+
+            std::cout << "It took me " << time_span.count() << " seconds.\n";
         }
 
         if (DataHeatBalance::AnyCondFD) {
@@ -4491,6 +4498,7 @@ namespace HeatBalanceSurfaceManager {
         //int SurfNum;     // Surface number DO loop counter
         int tid;           // thread number
 
+
         static Array1D<Real64> QExt1;    // Heat flux at the exterior surface during first time step/series
         static Array1D<Real64> QInt1;    // Heat flux at the interior surface during first time step/series
         static Array1D<Real64> TempInt1; // Temperature of interior surface during first time step/series
@@ -4535,12 +4543,11 @@ namespace HeatBalanceSurfaceManager {
         //auto l11(l111);
        // auto l21(l211);
 
-        omp_set_num_threads(1);
 #pragma omp parallel for private(tid)
         for (int SurfNum = 1; SurfNum <= TotSurfaces;
              ++SurfNum) { // Loop through all (heat transfer) surfaces...  [ l11 ] = ( 1, 1, SurfNum ), [ l21 ] = ( 2, 1, SurfNum )
-//            tid = omp_get_thread_num();
-//            printf("First loop, Thread number = %d\n", tid);
+            //tid = omp_get_thread_num();
+            //printf("First loop, Thread number = %d\n", tid);
             auto const l11(TH.index(1, 1, SurfNum));
             auto const l21(TH.index(2, 1, SurfNum));
             auto const &surface(Surface(SurfNum));
@@ -4584,8 +4591,10 @@ namespace HeatBalanceSurfaceManager {
                 OpaqSurfInsFaceCondGainRep(SurfNum) = 0.0;
                 OpaqSurfInsFaceCondLossRep(SurfNum) = 0.0;
                 if (OpaqSurfInsFaceConduction(SurfNum) >= 0.0) {
+		    #omp atomic update
                     OpaqSurfInsFaceCondGainRep(SurfNum) = OpaqSurfInsFaceConduction(SurfNum);
                 } else {
+		    #omp atomic update
                     OpaqSurfInsFaceCondLossRep(SurfNum) = -OpaqSurfInsFaceConduction(SurfNum);
                 }
             }
@@ -4604,6 +4613,7 @@ namespace HeatBalanceSurfaceManager {
 
             // Set current outside flux:
             if (construct.SourceSinkPresent) {
+		
                 QH[l11] = TH[l11] * construct.CTFOutside(0) - TempSurfIn(SurfNum) * construct.CTFCross(0) +
                           QsrcHist(SurfNum, 1) * construct.CTFSourceOut(0) +
                           CTFConstOutPart(SurfNum); // Heat source/sink term for radiant systems
@@ -4620,10 +4630,8 @@ namespace HeatBalanceSurfaceManager {
 
         } // ...end of loop over all (heat transfer) surfaces...
 
-
 //        l11 = l111;
 //        l21 = l211;
-        omp_set_num_threads(1);
 #pragma omp parallel for private(tid)
         for (int SurfNum = 1; SurfNum <= TotSurfaces;
              ++SurfNum) { // Loop through all (heat transfer) surfaces...  [ l11 ] = ( 1, 1, SurfNum ), [ l21 ] = ( 2, 1, SurfNum )
@@ -4652,7 +4660,6 @@ namespace HeatBalanceSurfaceManager {
 
         // SHIFT TEMPERATURE AND FLUX HISTORIES:
         // SHIFT AIR TEMP AND FLUX SHIFT VALUES WHEN AT BOTTOM OF ARRAY SPACE.
-        omp_set_num_threads(1);
 #pragma omp parallel for
         for (int SurfNum = 1; SurfNum <= TotSurfaces; ++SurfNum) { // Loop through all (heat transfer) surfaces...
             auto const &surface(Surface(SurfNum));
