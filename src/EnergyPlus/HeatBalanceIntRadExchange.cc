@@ -247,6 +247,7 @@ namespace HeatBalanceIntRadExchange {
                 e.IRfromParentZone = 0.0;
         }
 
+#pragma omp parallel for
         for (int enclosureNum = startEnclosure; enclosureNum <= endEnclosure; ++enclosureNum) {
 
             auto &zone_info(ZoneRadiantInfo(enclosureNum));

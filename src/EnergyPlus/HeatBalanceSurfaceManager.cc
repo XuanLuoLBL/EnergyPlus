@@ -5190,14 +5190,14 @@ namespace HeatBalanceSurfaceManager {
             CalcInteriorRadExchange(TH(2, 1, _), 0, NetLWRadToSurf, _, Outside);
         }
 
-        int thread_number = 8;
+        //int thread_number = 8;
 
-        omp_set_num_threads(thread_number);
+        //omp_set_num_threads(thread_number);
 //#pragma omp parallel for default (none) shared(MovInsulErrorFlag)
-#pragma omp parallel for shared(MovInsulErrorFlag)
+//#pragma omp parallel for shared(MovInsulErrorFlag)
         for (int SurfNum = 1; SurfNum <= TotSurfaces; ++SurfNum) { // Loop through all surfaces...
-//            tid = omp_get_thread_num();
-//            printf("First loop, Thread number = %d\n", tid);
+            //tid = omp_get_thread_num();
+            //printf("First loop, Thread number = %d\n", tid);
             int ZoneNum = Surface(SurfNum).Zone;
 
             if (present(ZoneToResimulate)) {
