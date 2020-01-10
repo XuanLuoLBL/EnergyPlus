@@ -180,16 +180,8 @@ namespace HeatBalanceIntRadExchange {
         Real64 const StefanBoltzmannConst(5.6697e-8); // Stefan-Boltzmann constant in W/(m2*K4)
         static ObjexxFCL::gio::Fmt fmtLD("*");
 
-        Real64 RecSurfTemp;                // Receiving surface temperature (C)
-        Real64 SendSurfTemp;               // Sending surface temperature (C)
-        Real64 RecSurfEmiss;               // Inside surface emissivity
-        bool IntShadeOrBlindStatusChanged; // True if status of interior shade or blind on at least
-        // one window in a zone has changed from previous time step
-        int ShadeFlag;     // Window shading status current time step
-        int ShadeFlagPrev; // Window shading status previous time step
 
         // variables added as part of strategy to reduce calculation time - Glazer 2011-04-22
-        Real64 RecSurfTempInKTo4th; // Receiving surface temperature in K to 4th power
         static Array1D<Real64> SendSurfaceTempInKto4thPrecalc;
 
         // FLOW:
@@ -246,9 +238,17 @@ namespace HeatBalanceIntRadExchange {
             for (auto &e : SurfaceWindow)
                 e.IRfromParentZone = 0.0;
         }
+        Real64 RecSurfTemp;                // Receiving surface temperature (C)
+        Real64 SendSurfTemp;               // Sending surface temperature (C)
+        Real64 RecSurfEmiss;               // Inside surface emissivity
 
-#pragma omp parallel for
+#pragma omp parallel for default (none) shared(SurfIterations)
         for (int enclosureNum = startEnclosure; enclosureNum <= endEnclosure; ++enclosureNum) {
+            bool IntShadeOrBlindStatusChanged; // True if status of interior shade or blind on at least
+            // one window in a zone has changed from previous time step
+            int ShadeFlag;     // Window shading status current time step
+            int ShadeFlagPrev; // Window shading status previous time step
+            Real64 RecSurfTempInKTo4th; // Receiving surface temperature in K to 4th power
 
             auto &zone_info(ZoneRadiantInfo(enclosureNum));
             auto &zone_ScriptF(zone_info.ScriptF); // Tuned Transposed
