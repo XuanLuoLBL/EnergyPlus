@@ -238,12 +238,12 @@ namespace HeatBalanceIntRadExchange {
             for (auto &e : SurfaceWindow)
                 e.IRfromParentZone = 0.0;
         }
-        Real64 RecSurfTemp;                // Receiving surface temperature (C)
-        Real64 SendSurfTemp;               // Sending surface temperature (C)
-        Real64 RecSurfEmiss;               // Inside surface emissivity
 
 #pragma omp parallel for default (none) shared(SurfIterations)
         for (int enclosureNum = startEnclosure; enclosureNum <= endEnclosure; ++enclosureNum) {
+            Real64 RecSurfTemp;                // Receiving surface temperature (C)
+            Real64 SendSurfTemp;               // Sending surface temperature (C)
+            Real64 RecSurfEmiss;               // Inside surface emissivity
             bool IntShadeOrBlindStatusChanged; // True if status of interior shade or blind on at least
             // one window in a zone has changed from previous time step
             int ShadeFlag;     // Window shading status current time step
