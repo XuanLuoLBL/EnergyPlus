@@ -475,6 +475,8 @@ int RunEnergyPlus(std::string const & filepath)
         ReportOrphanFluids();
         ReportOrphanSchedules();
 
+        std::cout << "update_thermal_total: " << DataGlobals::timer << "\n";
+
         if (runReadVars) {
             std::string readVarsPath = exeDirectory + "ReadVarsESO" + exeExtension;
             bool FileExists;

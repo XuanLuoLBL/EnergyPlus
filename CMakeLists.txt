@@ -66,6 +66,9 @@ option( BUILD_TESTING "Build testing targets" OFF )
 option( BUILD_FORTRAN "Build Fortran stuff" OFF )
 option( BUILD_DOCS "Build LaTeX-pdf documentation" OFF )
 
+include_directories("/usr/local/include" "/usr/local/opt/llvm/include")
+link_directories("/usr/local/lib" "/usr/local/opt/llvm/lib")
+
 
 # Turning ENABLE_GTEST_DEBUG_MODE ON will cause assertions and exceptions to halt the test case and unwind.
 # Turn this option OFF for automated testing.
