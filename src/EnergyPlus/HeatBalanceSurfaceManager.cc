@@ -50,6 +50,7 @@
 #include <cassert>
 #include <cmath>
 #include <omp.h>
+#include <chrono>
 
 // ObjexxFCL Headers
 #include <ObjexxFCL/Array.functions.hh>
@@ -229,6 +230,10 @@ namespace HeatBalanceSurfaceManager {
         using HeatBalFiniteDiffManager::SurfaceFD;
         using OutputReportTabular::GatherComponentLoadsSurface; // for writing tabular compoonent loads output reports
         using ThermalComfort::ManageThermalComfort;
+        using namespace std::chrono;
+
+
+
 
         int SurfNum;
         int ConstrNum;
@@ -239,7 +244,14 @@ namespace HeatBalanceSurfaceManager {
         // Solve the zone heat balance 'Detailed' solution
         // Call the outside and inside surface heat balances
         if (ManageSurfaceHeatBalancefirstTime) DisplayString("Calculate Outside Surface Heat Balance");
+        high_resolution_clock::time_point t1 = high_resolution_clock::now();
         CalcHeatBalanceOutsideSurf();
+        high_resolution_clock::time_point t2 = high_resolution_clock::now();
+        duration<double> time_span = duration_cast<duration<double>>(t2 - t1);
+
+        DataGlobals::timer += time_span.count();
+
+
         if (ManageSurfaceHeatBalancefirstTime) DisplayString("Calculate Inside Surface Heat Balance");
         CalcHeatBalanceInsideSurf();
 
@@ -4407,6 +4419,7 @@ namespace HeatBalanceSurfaceManager {
         using LowTempRadiantSystem::UpdateRadSysSourceValAvg;
         using SteamBaseboardRadiator::UpdateBBSteamRadSourceValAvg;
         using SwimmingPool::UpdatePoolSourceValAvg;
+        using namespace std::chrono;
 
         // Locals
         // SUBROUTINE ARGUMENT DEFINITIONS:
@@ -4443,7 +4456,12 @@ namespace HeatBalanceSurfaceManager {
             SwimmingPoolOn) {
             // Solve the zone heat balance 'Detailed' solution
             // Call the outside and inside surface heat balances
+            high_resolution_clock::time_point t1 = high_resolution_clock::now();
             CalcHeatBalanceOutsideSurf();
+            high_resolution_clock::time_point t2 = high_resolution_clock::now();
+            duration<double> time_span = duration_cast<duration<double>>(t2 - t1);
+            DataGlobals::timer += time_span.count();
+
             CalcHeatBalanceInsideSurf();
         }
     }
@@ -5190,9 +5208,6 @@ namespace HeatBalanceSurfaceManager {
             CalcInteriorRadExchange(TH(2, 1, _), 0, NetLWRadToSurf, _, Outside);
         }
 
-        int thread_number = 8;
-
-        omp_set_num_threads(thread_number);
 //#pragma omp parallel for default (none) shared(MovInsulErrorFlag)
 #pragma omp parallel for shared(MovInsulErrorFlag)
         for (int SurfNum = 1; SurfNum <= TotSurfaces; ++SurfNum) { // Loop through all surfaces...

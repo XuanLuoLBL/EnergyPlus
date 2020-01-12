@@ -475,6 +475,8 @@ int RunEnergyPlus(std::string const & filepath)
         ReportOrphanFluids();
         ReportOrphanSchedules();
 
+        std::cout << "Calc heat balance: " << DataGlobals::timer << "\n";
+
         if (runReadVars) {
             std::string readVarsPath = exeDirectory + "ReadVarsESO" + exeExtension;
             bool FileExists;

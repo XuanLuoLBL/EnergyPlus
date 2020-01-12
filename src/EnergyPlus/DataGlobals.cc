@@ -266,6 +266,8 @@ namespace DataGlobals {
     void (*fProgressPtr)(int const);
     void (*fMessagePtr)(std::string const &);
 
+    double timer;
+
     // Clears the global data in DataGlobals.
     // Needed for unit tests, should not be normally called.
     void clear_state()
@@ -366,6 +368,7 @@ namespace DataGlobals {
         err_stream = nullptr;
         eio_stream = nullptr;
         delightin_stream = nullptr;
+        timer = 0.0;
     }
 
 } // namespace DataGlobals
