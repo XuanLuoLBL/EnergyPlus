@@ -140,7 +140,6 @@ namespace DataGlobals {
     extern int const emsCallFromBeginZoneTimestepAfterInitHeatBalance; // Identity where EMS called from
 
     extern int const ScheduleAlwaysOn; // Value when passed to schedule routines gives back 1.0 (on)
-
     // DERIVED TYPE DEFINITIONS:
     // na
 
@@ -301,6 +300,8 @@ namespace DataGlobals {
     extern int Progress;
     extern void (*fProgressPtr)(int const);
     extern void (*fMessagePtr)(std::string const &);
+
+    extern double timer;
 
     // Clears the global data in DataGlobals.
     // Needed for unit tests, should not be normally called.

@@ -260,8 +260,7 @@ namespace HeatBalanceSurfaceManager {
             UpdateThermalHistories(); // Update the thermal histories
             high_resolution_clock::time_point t2 = high_resolution_clock::now();
             duration<double> time_span = duration_cast<duration<double>>(t2 - t1);
-
-            std::cout << "It took me " << time_span.count() << " seconds.\n";
+            DataGlobals::timer += time_span.count();
         }
 
         if (DataHeatBalance::AnyCondFD) {
@@ -4541,13 +4540,12 @@ namespace HeatBalanceSurfaceManager {
         //auto const l111(TH.index(1, 1, 1));
         //auto const l211(TH.index(2, 1, 1));
         //auto l11(l111);
-       // auto l21(l211);
+        // auto l21(l211);
 
 #pragma omp parallel for private(tid)
         for (int SurfNum = 1; SurfNum <= TotSurfaces;
              ++SurfNum) { // Loop through all (heat transfer) surfaces...  [ l11 ] = ( 1, 1, SurfNum ), [ l21 ] = ( 2, 1, SurfNum )
-            //tid = omp_get_thread_num();
-            //printf("First loop, Thread number = %d\n", tid);
+
             auto const l11(TH.index(1, 1, SurfNum));
             auto const l21(TH.index(2, 1, SurfNum));
             auto const &surface(Surface(SurfNum));
@@ -4632,14 +4630,12 @@ namespace HeatBalanceSurfaceManager {
 
 //        l11 = l111;
 //        l21 = l211;
-#pragma omp parallel for private(tid)
+#pragma omp parallel for
         for (int SurfNum = 1; SurfNum <= TotSurfaces;
              ++SurfNum) { // Loop through all (heat transfer) surfaces...  [ l11 ] = ( 1, 1, SurfNum ), [ l21 ] = ( 2, 1, SurfNum )
             auto const l11(TH.index(1, 1, SurfNum));
             auto const l21(TH.index(2, 1, SurfNum));
             auto const &surface(Surface(SurfNum));
-//            tid = omp_get_thread_num();
-//            printf("Second loop, Thread number = %d\n", tid);
             if (surface.Class == SurfaceClass_Window || !surface.HeatTransSurf) continue;
             if ((surface.HeatTransferAlgorithm != HeatTransferModel_CTF) && (surface.HeatTransferAlgorithm != HeatTransferModel_EMPD) &&
                 (surface.HeatTransferAlgorithm != HeatTransferModel_TDD))
