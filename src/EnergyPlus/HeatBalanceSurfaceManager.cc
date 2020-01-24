@@ -4589,10 +4589,8 @@ namespace HeatBalanceSurfaceManager {
                 OpaqSurfInsFaceCondGainRep(SurfNum) = 0.0;
                 OpaqSurfInsFaceCondLossRep(SurfNum) = 0.0;
                 if (OpaqSurfInsFaceConduction(SurfNum) >= 0.0) {
-		    #omp atomic update
                     OpaqSurfInsFaceCondGainRep(SurfNum) = OpaqSurfInsFaceConduction(SurfNum);
                 } else {
-		    #omp atomic update
                     OpaqSurfInsFaceCondLossRep(SurfNum) = -OpaqSurfInsFaceConduction(SurfNum);
                 }
             }
